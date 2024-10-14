@@ -3,6 +3,12 @@ The Physics Simulation Engine is designed to simulate the movement and interacti
 The purpose of this engine is to provide accurate and real-time simulation for applications like video games, physics research, or educational tools. 
 The system will simulate rigid body dynamics, handle force application, detect collisions between objects, and provide realistic collision responses. 
 
+The simulation will support: 
+- Rigid body simulation with customizable objects and forces. 
+- Basic force effects including gravity, friction, and user-defined forces. 
+- Collision detection for axis-aligned bounding boxes (AABB) and circle colliders. 
+- Real-time updates of objects in response to forces and collisions. 
+
 ## Project Directory Structure
 ```
 ├── docs/
