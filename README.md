@@ -3,6 +3,35 @@ The Physics Simulation Engine is designed to simulate the movement and interacti
 The purpose of this engine is to provide accurate and real-time simulation for applications like video games, physics research, or educational tools. 
 The system will simulate rigid body dynamics, handle force application, detect collisions between objects, and provide realistic collision responses. 
 
+## Project Directory Structure
+├── docs/
+│   └── Physics Simulation Engine (for project documentation)
+├── include/
+│   └── jni.h (generated JNI header for C++ integration)
+├── lib/
+│   └── libPhysicsEngine.so (compiled shared library for the physics engine)
+├── resources/
+│   └── temp (resource files such as images, config files, etc.)
+├── src/
+│   ├── cpp/
+│   │   ├── main.cpp (entry point for the C++ engine)
+│   │   ├── object.cpp/.h (object properties and methods)
+│   │   ├── physics_world.cpp/.h (physics simulation logic)
+│   │   └── collider.cpp/.h (collision detection logic)
+│   └── java/
+│       ├── PhysicsSimulation.java (Java entry point)
+│       └── jni/
+│           └── PhysicsEngineJNI.java (Java JNI wrapper to call C++ methods)
+├── tests/              
+│   ├── cpp/          
+│   │   ├── test_object.cpp    (Tests for object class)
+│   │   ├── test_collider.cpp  (Tests for collision detection)
+│   │   └── test_physics_world.cpp (Tests for core simulation logic)
+│   └── java/  (Integration tests for Java and C++ interaction)
+│
+├── .gitignore (ignore specific files)
+└── README.md (project documentation)
+
 ## Getting Started
 
 To install the package, you can use pip with the URL of the GitHub repository.
@@ -10,19 +39,40 @@ To install the package, you can use pip with the URL of the GitHub repository.
 1. **Clone the Repository:**
    ```bash
    git clone https://github.com/your-username/physics-engine
+   cd physics-engine
    ```
 2. **Set up C++ Environment**
+   Navigate to the src/cpp/ directory:
+   ```bash
+   cd src/cpp
+   ```
    Compile the C++ physics engine: 
    ```bash
-   g++ -o physics_engine main.cpp object.cpp physics_world.cpp -shared -o libPhysicsEngine.so 
+   g++ -fPIC -shared -o ../../lib/libPhysicsEngine.so main.cpp object.cpp physics_world.cpp collider.cpp 
    ```
-3. **Set Up Java Environment**
-   Compile the Java frontend and ensure JNI integration:
+   This will generate the libPhysicsEngine.so shared library in the lib/ directory.
+   
+4. **Set Up Java Environment**
+   Navigate to the src/java/ directory:
    ```bash
-   javac -cp . -d . PhysicsSimulation.java
+   cd ../../src/java
    ```
-4. **Run the Simulation**
-   Execute the Java program, which calls the C++ engine:
+   Compile the Java frontend and JNI integration:
+   ```bash
+   javac -cp . -d . PhysicsSimulation.java jni/PhysicsEngineJNI.java
+   ```
+   If the JNI header (jni.h) is not already generated, run:
+   ```bash
+   javah -jni jni.PhysicsEngineJNI
+   ```
+   This generates jni_PhysicsEngineJNI.h and should be included in your C++ code for JNI communication.
+   
+6. **Run the Simulation**
+   Ensure that the libPhysicsEngine.so is available in your library path:
+   ```bash
+   export LD_LIBRARY_PATH=../../lib:$LD_LIBRARY_PATH
+   ```
+   Execute the Java program, which will invoke the C++ physics engine via JNI:
    ```bash
    java PhysicsSimulation 
    ```
