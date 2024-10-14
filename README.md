@@ -4,6 +4,7 @@ The purpose of this engine is to provide accurate and real-time simulation for a
 The system will simulate rigid body dynamics, handle force application, detect collisions between objects, and provide realistic collision responses. 
 
 ## Project Directory Structure
+```
 ├── docs/
 │   └── Physics Simulation Engine (for project documentation)
 ├── include/
@@ -31,6 +32,7 @@ The system will simulate rigid body dynamics, handle force application, detect c
 │
 ├── .gitignore (ignore specific files)
 └── README.md (project documentation)
+```
 
 ## Getting Started
 
