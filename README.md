@@ -36,8 +36,8 @@ The simulation will support:
 │   │   └── test_physics_world.cpp (Tests for core simulation logic)
 │   └── java/  (Integration tests for Java and C++ interaction)
 │
-├── .gitignore (ignore specific files)
-└── README.md (project documentation)
+├── .gitignore
+└── README.md
 ```
 
 ## Getting Started
