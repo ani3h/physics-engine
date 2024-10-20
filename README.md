@@ -59,7 +59,8 @@ To install the package, you can use pip with the URL of the GitHub repository.
    git clone https://github.com/your-username/physics-engine
    cd physics-engine
    ```
-2. **Set up C++ Environment**
+2. **Set up C++ Environment:**
+   
    Navigate to the src/cpp/ directory:
    ```bash
    cd src/cpp
@@ -70,7 +71,8 @@ To install the package, you can use pip with the URL of the GitHub repository.
    ```
    This will generate the libPhysicsEngine.so shared library in the lib/ directory.
    
-4. **Set Up Java Environment**
+4. **Set Up Java Environment:**
+   
    Navigate to the src/java/ directory:
    ```bash
    cd ../../src/java
@@ -86,6 +88,7 @@ To install the package, you can use pip with the URL of the GitHub repository.
    This generates jni_PhysicsEngineJNI.h and should be included in your C++ code for JNI communication.
    
 6. **Set Up Next.js Frontend:**
+   
    Navigate to the src/nextjs/ directory:
    ```bash
    cd ../../src/nextjs
@@ -100,7 +103,8 @@ To install the package, you can use pip with the URL of the GitHub repository.
    ```
    This will launch the frontend on http://localhost:3000.
 
-7. **Run the Simulation:**
+8. **Run the Simulation:**
+   
    Ensure that the libPhysicsEngine.so is available in your library path:
    ```bash
    export LD_LIBRARY_PATH=../../lib:$LD_LIBRARY_PATH
