@@ -74,6 +74,13 @@ public:
         return x * other.x + y * other.y;
     }
 
+    // Distance between two points (this and another Vector2D)
+    float distance(const Vector2D& other) const {
+        float dx = x - other.x;
+        float dy = y - other.y;
+        return std::sqrt(dx * dx + dy * dy);
+    }
+
     // Get the perpendicular vector (useful for certain force applications)
     Vector2D perpendicular() const {
         return Vector2D(-y, x);  // 90 degrees rotation
