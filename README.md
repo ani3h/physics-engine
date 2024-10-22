@@ -23,6 +23,7 @@ The simulation will support:
 │   ├── cpp/
 │   │   ├── main.cpp (entry point for the C++ engine)
 │   │   ├── object.cpp/.h (object properties and methods)
+│   │   ├── forces.cpp/.h (forces properties and methods)
 │   │   ├── physics_world.cpp/.h (physics simulation logic)
 │   │   └── collider.cpp/.h (collision detection logic)
 │   ├── java/
