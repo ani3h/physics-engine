@@ -23,6 +23,11 @@ public:
 
     const Vector2D& getAcceleration() const;
 
+    // Modifiable getters for object properties
+    Vector2D& getPosition() {return position;}
+    Vector2D& getVelocity() {return velocity;}
+    Vector2D& getAcceleration() {return acceleration;}
+
     // Apply force to the object
     void applyForce(const Vector2D& force);
 
@@ -34,7 +39,7 @@ public:
 
     // Method to calculate area (pure virtual, implemented by derived classes)
     virtual float calculateArea() const = 0;
-    
+
 protected:
     float mass;
     Vector2D position;
