@@ -17,7 +17,7 @@ public:
 
     const Vector2D& getPosition() const;
     void setPosition(const Vector2D& position);
-
+    
     const Vector2D& getVelocity() const;
     void setVelocity(const Vector2D& velocity);
 
@@ -34,7 +34,7 @@ public:
 
     // Method to calculate area (pure virtual, implemented by derived classes)
     virtual float calculateArea() const = 0;
-
+    
 protected:
     float mass;
     Vector2D position;
