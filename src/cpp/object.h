@@ -7,7 +7,8 @@
 // Base Object class
 class Object {
 public:
-    Object(float mass, const Vector2D& position, const Vector2D& velocity);
+    // Constructor with ID, mass, position, and velocity
+    Object(int id, float mass, const Vector2D& position, const Vector2D& velocity);
 
     virtual ~Object() = default;  // Ensure proper destruction of derived objects
 
@@ -24,9 +25,9 @@ public:
     const Vector2D& getAcceleration() const;
 
     // Modifiable getters for object properties
-    Vector2D& getPosition() {return position;}
-    Vector2D& getVelocity() {return velocity;}
-    Vector2D& getAcceleration() {return acceleration;}
+    Vector2D& getPosition() { return position; }
+    Vector2D& getVelocity() { return velocity; }
+    Vector2D& getAcceleration() { return acceleration; }
 
     // Apply force to the object
     void applyForce(const Vector2D& force);
@@ -40,7 +41,14 @@ public:
     // Method to calculate area (pure virtual, implemented by derived classes)
     virtual float calculateArea() const = 0;
 
+    // New method to get the object's unique ID
+    int getID() const;
+
+    // New method to update position based on velocity and deltaTime
+    void updatePosition(float deltaTime);
+
 protected:
+    int id;               // Unique identifier for the object
     float mass;
     Vector2D position;
     Vector2D velocity;
@@ -54,7 +62,7 @@ protected:
 // Derived class: Square
 class Square : public Object {
 public:
-    Square(float mass, const Vector2D& position, const Vector2D& velocity, float sideLength);
+    Square(int id, float mass, const Vector2D& position, const Vector2D& velocity, float sideLength);
 
     float getSideLength() const;
     void setSideLength(float sideLength);
@@ -69,7 +77,7 @@ private:
 // Derived class: Rectangle
 class Rectangle : public Object {
 public:
-    Rectangle(float mass, const Vector2D& position, const Vector2D& velocity, float width, float height);
+    Rectangle(int id, float mass, const Vector2D& position, const Vector2D& velocity, float width, float height);
 
     float getWidth() const;
     float getHeight() const;
@@ -85,7 +93,7 @@ private:
 // Derived class: Circle
 class Circle : public Object {
 public:
-    Circle(float mass, const Vector2D& position, const Vector2D& velocity, float radius);
+    Circle(int id, float mass, const Vector2D& position, const Vector2D& velocity, float radius);
 
     float getRadius() const;
     void setRadius(float radius);
@@ -100,7 +108,7 @@ private:
 // Derived class: CustomShape (polygon)
 class CustomShape : public Object {
 public:
-    CustomShape(float mass, const Vector2D& position, const Vector2D& velocity, const std::vector<Vector2D>& vertices);
+    CustomShape(int id, float mass, const Vector2D& position, const Vector2D& velocity, const std::vector<Vector2D>& vertices);
 
     const std::vector<Vector2D>& getVertices() const;
     void setVertices(const std::vector<Vector2D>& vertices);

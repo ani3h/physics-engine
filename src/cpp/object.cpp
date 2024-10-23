@@ -1,11 +1,20 @@
 #include "object.h"
 
-// ----------------------
-// Base Object class methods
-// ----------------------
-Object::Object(float mass, const Vector2D& position, const Vector2D& velocity)
-    : mass(mass), position(position), velocity(velocity), acceleration(0, 0), netForce(0, 0) {}
+// Constructor with ID, mass, position, and velocity
+Object::Object(int id, float mass, const Vector2D& position, const Vector2D& velocity)
+    : id(id), mass(mass), position(position), velocity(velocity), acceleration(0, 0), netForce(0, 0) {}
 
+// Get the object's unique ID
+int Object::getID() const {
+    return id;
+}
+
+// Update position based on velocity and deltaTime
+void Object::updatePosition(float deltaTime) {
+    position += velocity * deltaTime;
+}
+
+// Getters and setters
 float Object::getMass() const {
     return mass;
 }
@@ -34,33 +43,31 @@ const Vector2D& Object::getAcceleration() const {
     return acceleration;
 }
 
+// Apply force to the object
 void Object::applyForce(const Vector2D& force) {
     netForce += force;
 }
 
+// Update object's state
 void Object::update(float deltaTime) {
-    if (mass != 0) {
-        acceleration = calculateAcceleration();
-    }
+    acceleration = calculateAcceleration();
     velocity += acceleration * deltaTime;
-    position += velocity * deltaTime;
-    resetForces();
+    updatePosition(deltaTime);  // Move the object
 }
 
+// Reset accumulated forces
 void Object::resetForces() {
     netForce = Vector2D(0, 0);
 }
 
+// Helper function to calculate acceleration
 Vector2D Object::calculateAcceleration() const {
-    return netForce / mass;
+    return mass > 0 ? netForce / mass : Vector2D(0, 0);
 }
 
-
-// ----------------------
-// Square class methods
-// ----------------------
-Square::Square(float mass, const Vector2D& position, const Vector2D& velocity, float sideLength)
-    : Object(mass, position, velocity), sideLength(sideLength) {}
+// Constructor for Square
+Square::Square(int id, float mass, const Vector2D& position, const Vector2D& velocity, float sideLength)
+    : Object(id, mass, position, velocity), sideLength(sideLength) {}
 
 float Square::getSideLength() const {
     return sideLength;
@@ -74,12 +81,9 @@ float Square::calculateArea() const {
     return sideLength * sideLength;
 }
 
-
-// ----------------------
-// Rectangle class methods
-// ----------------------
-Rectangle::Rectangle(float mass, const Vector2D& position, const Vector2D& velocity, float width, float height)
-    : Object(mass, position, velocity), width(width), height(height) {}
+// Constructor for Rectangle
+Rectangle::Rectangle(int id, float mass, const Vector2D& position, const Vector2D& velocity, float width, float height)
+    : Object(id, mass, position, velocity), width(width), height(height) {}
 
 float Rectangle::getWidth() const {
     return width;
@@ -98,12 +102,9 @@ float Rectangle::calculateArea() const {
     return width * height;
 }
 
-
-// ----------------------
-// Circle class methods
-// ----------------------
-Circle::Circle(float mass, const Vector2D& position, const Vector2D& velocity, float radius)
-    : Object(mass, position, velocity), radius(radius) {}
+// Constructor for Circle
+Circle::Circle(int id, float mass, const Vector2D& position, const Vector2D& velocity, float radius)
+    : Object(id, mass, position, velocity), radius(radius) {}
 
 float Circle::getRadius() const {
     return radius;
@@ -114,14 +115,12 @@ void Circle::setRadius(float radius) {
 }
 
 float Circle::calculateArea() const {
-    return 3.14159f * radius * radius;  // Area of a circle = πr²
+    return 3.14159f * radius * radius;
 }
 
-// ----------------------
-// CustomShape class methods
-// ----------------------
-CustomShape::CustomShape(float mass, const Vector2D& position, const Vector2D& velocity, const std::vector<Vector2D>& vertices)
-    : Object(mass, position, velocity), vertices(vertices) {}
+// Constructor for CustomShape
+CustomShape::CustomShape(int id, float mass, const Vector2D& position, const Vector2D& velocity, const std::vector<Vector2D>& vertices)
+    : Object(id, mass, position, velocity), vertices(vertices) {}
 
 const std::vector<Vector2D>& CustomShape::getVertices() const {
     return vertices;
@@ -135,15 +134,14 @@ float CustomShape::calculateArea() const {
     return calculatePolygonArea();
 }
 
-
-// Helper function to calculate the area of a polygon using the shoelace formula
 float CustomShape::calculatePolygonArea() const {
+    // Polygon area calculation using the Shoelace formula
     float area = 0;
     int n = vertices.size();
-    for (int i = 0; i < n; ++i) {
-        const Vector2D& p1 = vertices[i];
-        const Vector2D& p2 = vertices[(i + 1) % n];
-        area += (p1.x * p2.y) - (p1.y * p2.x);
+    for (int i = 0; i < n; i++) {
+        Vector2D current = vertices[i];
+        Vector2D next = vertices[(i + 1) % n];
+        area += current.x * next.y - next.x * current.y;
     }
-    return std::abs(area) / 2.0f;
+    return 0.5f * std::abs(area);
 }
