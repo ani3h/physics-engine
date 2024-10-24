@@ -63,6 +63,11 @@ public:
         return std::sqrt(x * x + y * y);
     }
 
+    // Squared Length (or magnitude) of the vector
+    float lengthSquared() const {
+        return (x * x + y * y);
+    }
+
     // Normalize the vector
     Vector2D normalized() const {
         float len = length();
