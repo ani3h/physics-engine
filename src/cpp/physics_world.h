@@ -25,6 +25,9 @@ public:
     // Update the world by one step, advancing the simulation
     void step(float deltaTime);
 
+    // Function to get all objects in the physics world
+    const std::vector<Object*>& getObjects() const;
+
 private:
     // List of objects in the physics world
     std::vector<Object*> objects;

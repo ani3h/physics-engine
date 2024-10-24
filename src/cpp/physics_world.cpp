@@ -94,3 +94,8 @@ void PhysicsWorld::resolveCollision(Object* objectA, Object* objectB) {
         colliderA->resolveCollision(*objectA, *objectB);
     }
 }
+
+// Get the list of objects in the world
+const std::vector<Object*>& PhysicsWorld::getObjects() const {
+    return objects;  // Return the list of objects
+}
