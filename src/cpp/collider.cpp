@@ -47,37 +47,120 @@ bool CircleCollider::checkCollision(const Collider& other) const {
 
 // AABB vs AABB collision response
 void AABBCollider::resolveCollision(Object& objectA, Object& objectB) const {
-    Vector2D& velocityA = objectA.getVelocity();  // Get modifiable reference
-    Vector2D& velocityB = objectB.getVelocity();  // Get modifiable reference
+    Vector2D& posA = objectA.getPosition();
+    Vector2D& posB = objectB.getPosition();
+    Vector2D& velA = objectA.getVelocity();
+    Vector2D& velB = objectB.getVelocity();
+    float massA = objectA.getMass();
+    float massB = objectB.getMass();
 
-    Vector2D relativeVelocity = velocityB - velocityA;
-
-    if (relativeVelocity.x != 0) {
-        velocityA.x = -velocityA.x * 0.8f;  // Apply bounce with damping
-        velocityB.x = -velocityB.x * 0.8f;
+    // Calculate collision normal (from A to B)
+    Vector2D normal;
+    
+    // Find the overlap direction
+    float overlapX = (posA.x + width) - posB.x;
+    if (std::abs(overlapX) > std::abs(posA.x - (posB.x + width))) {
+        overlapX = posA.x - (posB.x + width);
     }
     
-    if (relativeVelocity.y != 0) {
-        velocityA.y = -velocityA.y * 0.8f;  // Apply bounce with damping
-        velocityB.y = -velocityB.y * 0.8f;
+    float overlapY = (posA.y + height) - posB.y;
+    if (std::abs(overlapY) > std::abs(posA.y - (posB.y + height))) {
+        overlapY = posA.y - (posB.y + height);
+    }
+
+    // Use the smallest overlap to determine collision normal
+    if (std::abs(overlapX) < std::abs(overlapY)) {
+        normal = Vector2D(overlapX > 0 ? 1.0f : -1.0f, 0.0f);
+    } else {
+        normal = Vector2D(0.0f, overlapY > 0 ? 1.0f : -1.0f);
+    }
+
+    // Calculate relative velocity
+    Vector2D relativeVel = velB - velA;
+    float velocityAlongNormal = relativeVel.dot(normal);
+
+    // Don't resolve if objects are moving apart
+    if (velocityAlongNormal > 0) return;
+
+    // Coefficient of restitution (elasticity)
+    float e = 0.8f;
+
+    // Calculate impulse scalar
+    float j = -(1.0f + e) * velocityAlongNormal;
+    j /= (1.0f / massA) + (1.0f / massB);
+
+    // Apply impulse
+    Vector2D impulse = normal * j;
+    velA -= impulse / massA;
+    velB += impulse / massB;
+
+    // Apply friction
+    float friction = 0.2f;
+    Vector2D tangent = relativeVel - (normal * velocityAlongNormal);
+    if (tangent.lengthSquared() > 0.0001f) {
+        tangent = tangent.normalized();
+        float jt = -relativeVel.dot(tangent);
+        jt /= (1.0f / massA) + (1.0f / massB);
+
+        // Clamp friction
+        Vector2D frictionImpulse;
+        if (std::abs(jt) < j * friction) {
+            frictionImpulse = tangent * jt;
+        } else {
+            frictionImpulse = tangent * (-j * friction);
+        }
+
+        velA -= frictionImpulse / massA;
+        velB += frictionImpulse / massB;
     }
 }
 
 // Circle vs Circle collision response
 void CircleCollider::resolveCollision(Object& objectA, Object& objectB) const {
-    Vector2D normal = (objectB.getPosition() - objectA.getPosition()).normalized();
-    Vector2D& velocityA = objectA.getVelocity();  // Get modifiable reference
-    Vector2D& velocityB = objectB.getVelocity();  // Get modifiable reference
+    Vector2D& posA = objectA.getPosition();
+    Vector2D& posB = objectB.getPosition();
+    Vector2D& velA = objectA.getVelocity();
+    Vector2D& velB = objectB.getVelocity();
+    float massA = objectA.getMass();
+    float massB = objectB.getMass();
 
-    float relativeVelocity = (velocityB - velocityA).dot(normal);
+    // Calculate collision normal
+    Vector2D normal = (posB - posA).normalized();
+    Vector2D relativeVel = velB - velA;
+    
+    float velocityAlongNormal = relativeVel.dot(normal);
 
-    if (relativeVelocity > 0) return;  // Already moving apart
+    // Don't resolve if objects are moving apart
+    if (velocityAlongNormal > 0) return;
 
-    float e = 0.8f;  // Coefficient of restitution for inelastic collision
-    float impulse = (-(1 + e) * relativeVelocity) / (1 / objectA.getMass() + 1 / objectB.getMass());
+    // Coefficient of restitution (elasticity)
+    float e = 0.8f;
 
-    Vector2D impulseVec = normal * impulse;
+    // Calculate impulse scalar using conservation of momentum and energy
+    float j = -(1.0f + e) * velocityAlongNormal;
+    j /= (1.0f / massA) + (1.0f / massB);
 
-    velocityA -= impulseVec / objectA.getMass();
-    velocityB += impulseVec / objectB.getMass();
+    // Apply impulse
+    Vector2D impulse = normal * j;
+    velA -= impulse / massA;
+    velB += impulse / massB;
+    
+    // Apply friction (similar to AABB collision)
+    float friction = 0.2f;
+    Vector2D tangent = relativeVel - (normal * velocityAlongNormal);
+    if (tangent.lengthSquared() > 0.0001f) {
+        tangent = tangent.normalized();
+        float jt = -relativeVel.dot(tangent);
+        jt /= (1.0f / massA) + (1.0f / massB);
+
+        Vector2D frictionImpulse;
+        if (std::abs(jt) < j * friction) {
+            frictionImpulse = tangent * jt;
+        } else {
+            frictionImpulse = tangent * (-j * friction);
+        }
+
+        velA -= frictionImpulse / massA;
+        velB += frictionImpulse / massB;
+    }
 }
