@@ -1,4 +1,5 @@
 #include "object.h"
+#include <cmath>
 
 // Constructor with ID, mass, position, and velocity
 Object::Object(int id, float mass, const Vector2D& position, const Vector2D& velocity)
@@ -130,18 +131,27 @@ void CustomShape::setVertices(const std::vector<Vector2D>& vertices) {
     this->vertices = vertices;
 }
 
+// Calculate the area of the custom polygon using the Shoelace formula
 float CustomShape::calculateArea() const {
     return calculatePolygonArea();
 }
 
+// Helper function to calculate polygon area using the Shoelace formula
 float CustomShape::calculatePolygonArea() const {
-    // Polygon area calculation using the Shoelace formula
-    float area = 0;
+    float area = 0.0f;
     int n = vertices.size();
-    for (int i = 0; i < n; i++) {
-        Vector2D current = vertices[i];
-        Vector2D next = vertices[(i + 1) % n];
-        area += current.x * next.y - next.x * current.y;
+    
+    // Ensure we have at least 3 vertices to form a valid polygon
+    if (n < 3) {
+        return 0.0f;  // No area for invalid polygon
     }
-    return 0.5f * std::abs(area);
+
+    for (int i = 0; i < n; i++) {
+        const Vector2D& current = vertices[i];         // Current vertex
+        const Vector2D& next = vertices[(i + 1) % n];  // Next vertex (wrap around using modulus)
+        
+        area += (current.x * next.y) - (next.x * current.y);
+    }
+    
+    return 0.5f * std::abs(area);  // Return the absolute value of the area
 }
