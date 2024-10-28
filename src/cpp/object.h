@@ -138,7 +138,6 @@ private:
 };
 
 // Derived class: CustomShape (polygon)
-// Derived class: CustomShape (polygon)
 class CustomShape : public Object {
 public:
     CustomShape(int id, float mass, const Vector2D& position, const Vector2D& velocity, const std::vector<Vector2D>& vertices)
