@@ -10,6 +10,7 @@ class Collider {
 public:
     virtual bool checkCollision(const Collider& other) const = 0;
     virtual void resolveCollision(Object& objectA, Object& objectB) const = 0;
+    virtual ~Collider() = default;
 };
 
 // AABB Collider class for rectangular/box-like objects

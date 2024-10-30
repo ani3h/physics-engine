@@ -4,100 +4,188 @@
 #include "vector2d.h"
 #include "collider.h"
 #include <iostream>
-#include <imgui.h>
+#include <memory>
+
+// ImGui includes
+#include "imgui.h"
+#include "backends/imgui_impl_glfw.h"
+#include "backends/imgui_impl_opengl3.h"
 #include <GLFW/glfw3.h>
-#include <imgui_impl_glfw.h>
-#include <imgui_impl_opengl3.h>
 
-// Helper function to initialize ImGui
-void InitImGui(GLFWwindow* window) {
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGui::StyleColorsDark();
-    ImGui_ImplGlfw_InitForOpenGL(window, true);
-    ImGui_ImplOpenGL3_Init("#version 130");
-}
-
-// Helper function to render ImGui window
-void RenderImGui(PhysicsWorld& world) {
-    ImGui_ImplOpenGL3_NewFrame();
-    ImGui_ImplGlfw_NewFrame();
-    ImGui::NewFrame();
-
-    ImGui::Begin("Physics Simulation");
-    ImGui::Text("Block Simulation");
-    
-    // Render information about the objects in the world
-    for (const auto& object : world.getObjects()) {
-        ImGui::Text("Object ID: %d", object->getID());
-        ImGui::Text("Position: (%.2f, %.2f)", object->getPosition().x, object->getPosition().y);
-        ImGui::Text("Velocity: (%.2f, %.2f)", object->getVelocity().x, object->getVelocity().y);
-        ImGui::Separator();
-    }
-    
-    ImGui::End();
-    ImGui::Render();
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-}
-
-int main() {
-    // Initialize GLFW and create a window
-    if (!glfwInit()) {
-        std::cerr << "Failed to initialize GLFW" << std::endl;
-        return -1;
-    }
-
-    GLFWwindow* window = glfwCreateWindow(800, 600, "Physics Simulation", NULL, NULL);
-    if (!window) {
-        std::cerr << "Failed to create GLFW window" << std::endl;
-        glfwTerminate();
-        return -1;
-    }
-    
-    glfwMakeContextCurrent(window);
-    glfwSwapInterval(1); // Enable vsync
-
-    InitImGui(window);  // Initialize ImGui
-
-    // Create the PhysicsWorld
+class PhysicsSimulation {
+private:
+    GLFWwindow* window = nullptr;
     PhysicsWorld world;
-    
-    // Create a block object (Rectangle)
-    Rectangle block(1, 10.0f, Vector2D(0, 0), Vector2D(0, 0), 1.0f, 1.0f);
-    
-    // Add block to the world
-    world.addObject(&block);
+    const char* glsl_version = "#version 130";
 
-    // Apply forces to the block: 5N to the right and 6N to the left
-    Vector2D forceRight(5, 0);  // Force to the right
-    Vector2D forceLeft(-6, 0);  // Force to the left
-    
-    Forces::applyCustomForce(block, forceRight);  // Apply 5N force to the right
-    Forces::applyCustomForce(block, forceLeft);   // Apply 6N force to the left
+    bool initializeGLFW() {
+        if (!glfwInit()) {
+            std::cerr << "Failed to initialize GLFW" << std::endl;
+            return false;
+        }
 
-    // Main simulation loop
-    while (!glfwWindowShouldClose(window)) {
-        // Simulate one step
-        world.step(0.01f);  // Small time step for the simulation
+        // Create window with graphics context
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+        // Add this line to ensure proper OpenGL context
+        glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 
-        // Clear the screen
+        window = glfwCreateWindow(800, 600, "Physics Simulation", nullptr, nullptr);
+        if (!window) {
+            std::cerr << "Failed to create GLFW window" << std::endl;
+            glfwTerminate();
+            return false;
+        }
+
+        glfwMakeContextCurrent(window);
+        glfwSwapInterval(1); // Enable vsync
+        return true;
+    }
+
+    bool initializeImGui() {
+        // Setup Dear ImGui context
+        IMGUI_CHECKVERSION();
+        ImGui::CreateContext();
+        ImGuiIO& io = ImGui::GetIO();
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // Enable Keyboard Controls
+
+        // Setup Dear ImGui style
+        ImGui::StyleColorsDark();
+
+        // Setup Platform/Renderer backends
+        if (!ImGui_ImplGlfw_InitForOpenGL(window, true)) {
+            std::cerr << "Failed to initialize ImGui GLFW backend" << std::endl;
+            return false;
+        }
+
+        if (!ImGui_ImplOpenGL3_Init(glsl_version)) {
+            std::cerr << "Failed to initialize ImGui OpenGL3 backend" << std::endl;
+            return false;
+        }
+
+        return true;
+    }
+
+    void renderImGui() {
+        // Start the Dear ImGui frame
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+
+        // Create a window
+        ImGui::Begin("Physics Simulation", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+
+        // Display basic information
+        ImGui::Text("Simulation Controls");
+        ImGui::Separator();
+
+        // Display object information
+        for (const auto& object : world.getObjects()) {
+            Vector2D pos = object->getPosition();
+            Vector2D vel = object->getVelocity();
+
+            ImGui::Text("Object %d", object->getID());
+            ImGui::Text("Position: (%.2f, %.2f)", pos.x, pos.y);
+            ImGui::Text("Velocity: (%.2f, %.2f)", vel.x, vel.y);
+            ImGui::Separator();
+        }
+
+        ImGui::End();
+
+        // Rendering
+        ImGui::Render();
+        int display_w, display_h;
+        glfwGetFramebufferSize(window, &display_w, &display_h);
+        glViewport(0, 0, display_w, display_h);
+        glClearColor(0.45f, 0.55f, 0.60f, 1.00f);
         glClear(GL_COLOR_BUFFER_BIT);
         
-        // Render the ImGui window
-        RenderImGui(world);
-
-        // Swap buffers and poll events
-        glfwSwapBuffers(window);
-        glfwPollEvents();
+        // Get the draw data and render it
+        ImDrawData* draw_data = ImGui::GetDrawData();
+        if (draw_data) {
+            ImGui_ImplOpenGL3_RenderDrawData(draw_data);
+        }
     }
 
-    // Cleanup ImGui and GLFW
-    ImGui_ImplOpenGL3_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
-    ImGui::DestroyContext();
-    glfwDestroyWindow(window);
-    glfwTerminate();
-    
+public:
+    ~PhysicsSimulation() {
+        cleanup();
+    }
+
+    void cleanup() {
+        if (ImGui::GetCurrentContext() != nullptr) {
+            ImGui_ImplOpenGL3_Shutdown();
+            ImGui_ImplGlfw_Shutdown();
+            ImGui::DestroyContext();
+        }
+
+        if (window != nullptr) {
+            glfwDestroyWindow(window);
+            window = nullptr;
+        }
+
+        glfwTerminate();
+    }
+
+    bool initialize() {
+        if (!initializeGLFW()) {
+            cleanup();
+            return false;
+        }
+
+        if (!initializeImGui()) {
+            cleanup();
+            return false;
+        }
+
+        return true;
+    }
+
+    void setupScene() {
+        // Create a block
+        auto block = std::make_unique<Rectangle>(1, 10.0f, Vector2D(0, 0), Vector2D(0, 0), 1.0f, 1.0f);
+        world.addObject(block.release());
+
+        // Apply initial forces
+        if (!world.getObjects().empty()) {
+            Forces::applyCustomForce(*world.getObjects()[0], Vector2D(5, 0));   // Right force
+            Forces::applyCustomForce(*world.getObjects()[0], Vector2D(-6, 0));  // Left force
+        }
+    }
+
+    void run() {
+        while (window != nullptr && !glfwWindowShouldClose(window)) {
+            // Poll and handle events
+            glfwPollEvents();
+
+            // Update physics
+            world.step(0.01f);
+
+            // Render ImGui
+            renderImGui();
+
+            // Swap buffers
+            glfwSwapBuffers(window);
+        }
+    }
+};
+
+int main() {
+    PhysicsSimulation simulation;
+
+    // Initialize the simulation (GLFW, ImGui, etc.)
+    if (!simulation.initialize()) {
+        return -1;  // Exit if initialization failed
+    }
+
+    // Setup the initial scene
+    simulation.setupScene();
+
+    // Run the simulation loop
+    simulation.run();
+
+    // Cleanup resources after the simulation loop exits
+    simulation.cleanup();
+
     return 0;
 }
-
