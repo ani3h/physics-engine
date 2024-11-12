@@ -1,0 +1,4 @@
+/Users/mithileshsaiyechuri/Acads/Sem3/CJ/physics-engine-main/build/CMakeFiles/imgui.dir
+/Users/mithileshsaiyechuri/Acads/Sem3/CJ/physics-engine-main/build/CMakeFiles/PHYSICS-ENGINE-MAIN.dir
+/Users/mithileshsaiyechuri/Acads/Sem3/CJ/physics-engine-main/build/CMakeFiles/edit_cache.dir
+/Users/mithileshsaiyechuri/Acads/Sem3/CJ/physics-engine-main/build/CMakeFiles/rebuild_cache.dir

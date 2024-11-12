@@ -11,10 +11,6 @@ public:
     // Constructor with ID, mass, position, and velocity
     Object(int id, float mass, const Vector2D& position, const Vector2D& velocity);
 
-    virtual ~Object() {
-        delete collider;  // Ensure proper destruction of the collider
-    }
-
     // Getters and setters for object properties
     float getMass() const;
     void setMass(float mass);
@@ -69,10 +65,7 @@ protected:
 // Derived class: Square
 class Square : public Object {
 public:
-    Square(int id, float mass, const Vector2D& position, const Vector2D& velocity, float sideLength)
-        : Object(id, mass, position, velocity), sideLength(sideLength) {
-        collider = new AABBCollider(position, sideLength, sideLength);  // Create an AABB collider for the square
-    }
+    Square(int id, float mass, const Vector2D& position, const Vector2D& velocity, float sideLength);
 
     float getSideLength() const;
     void setSideLength(float sideLength);
@@ -81,9 +74,7 @@ public:
     float calculateArea() const override;
 
     // Override getCollider to return the collider
-    Collider* getCollider() const override {
-        return collider;
-    }
+    Collider* getCollider() const override { return collider; }
 
 private:
     float sideLength;
@@ -92,10 +83,7 @@ private:
 // Derived class: Rectangle
 class Rectangle : public Object {
 public:
-    Rectangle(int id, float mass, const Vector2D& position, const Vector2D& velocity, float width, float height)
-        : Object(id, mass, position, velocity), width(width), height(height) {
-        collider = new AABBCollider(position, width, height);  // Create an AABB collider for the rectangle
-    }
+    Rectangle(int id, float mass, const Vector2D& position, const Vector2D& velocity, float width, float height);
 
     float getWidth() const;
     float getHeight() const;
@@ -105,22 +93,16 @@ public:
     float calculateArea() const override;
 
     // Override getCollider to return the collider
-    Collider* getCollider() const override {
-        return collider;
-    }
+    Collider* getCollider() const override { return collider; }
 
 private:
     float width, height;
 };
 
-
 // Derived class: Circle
 class Circle : public Object {
 public:
-    Circle(int id, float mass, const Vector2D& position, const Vector2D& velocity, float radius)
-        : Object(id, mass, position, velocity), radius(radius) {
-        collider = new CircleCollider(position, radius);  // Create a Circle collider for the circle
-    }
+    Circle(int id, float mass, const Vector2D& position, const Vector2D& velocity, float radius);
 
     float getRadius() const;
     void setRadius(float radius);
@@ -129,9 +111,7 @@ public:
     float calculateArea() const override;
 
     // Override getCollider to return the collider
-    Collider* getCollider() const override {
-        return collider;
-    }
+    Collider* getCollider() const override { return collider; }
 
 private:
     float radius;
@@ -140,66 +120,26 @@ private:
 // Derived class: CustomShape (polygon)
 class CustomShape : public Object {
 public:
-    CustomShape(int id, float mass, const Vector2D& position, const Vector2D& velocity, const std::vector<Vector2D>& vertices)
-        : Object(id, mass, position, velocity), vertices(vertices) {
-        // Create an AABB collider based on the bounding box of the polygon
-        collider = new AABBCollider(position, calculateBoundingBoxWidth(), calculateBoundingBoxHeight());
-    }
+    CustomShape(int id, float mass, const Vector2D& position, const Vector2D& velocity, const std::vector<Vector2D>& vertices);
 
-    const std::vector<Vector2D>& getVertices() const { return vertices; }
-    void setVertices(const std::vector<Vector2D>& vertices) {
-        this->vertices = vertices;
-        // Update the collider when vertices change
-        collider = new AABBCollider(position, calculateBoundingBoxWidth(), calculateBoundingBoxHeight());
-    }
+    const std::vector<Vector2D>& getVertices() const;
+    void setVertices(const std::vector<Vector2D>& vertices);
 
     // Override the calculateArea method
-    float calculateArea() const override {
-        return calculatePolygonArea();
-    }
+    float calculateArea() const override;
 
     // Override getCollider to return the collider
-    Collider* getCollider() const override {
-        return collider;
-    }
+    Collider* getCollider() const override { return collider; }
 
 private:
     std::vector<Vector2D> vertices;
 
     // Helper function to calculate the area of the polygon
-    float calculatePolygonArea() const {
-        float area = 0.0f;
-        int n = vertices.size();
-        
-        // Ensure we have at least 3 vertices to form a valid polygon
-        if (n < 3) return 0.0f;
-
-        for (int i = 0; i < n; i++) {
-            const Vector2D& current = vertices[i];
-            const Vector2D& next = vertices[(i + 1) % n];
-            area += (current.x * next.y) - (next.x * current.y);
-        }
-        return 0.5f * std::abs(area);
-    }
+    float calculatePolygonArea() const;
 
     // Helper functions to calculate the bounding box dimensions for the AABB collider
-    float calculateBoundingBoxWidth() const {
-        float minX = vertices[0].x, maxX = vertices[0].x;
-        for (const Vector2D& v : vertices) {
-            if (v.x < minX) minX = v.x;
-            if (v.x > maxX) maxX = v.x;
-        }
-        return maxX - minX;
-    }
-
-    float calculateBoundingBoxHeight() const {
-        float minY = vertices[0].y, maxY = vertices[0].y;
-        for (const Vector2D& v : vertices) {
-            if (v.y < minY) minY = v.y;
-            if (v.y > maxY) maxY = v.y;
-        }
-        return maxY - minY;
-    }
+    float calculateBoundingBoxWidth() const;
+    float calculateBoundingBoxHeight() const;
 };
 
 #endif // OBJECT_H

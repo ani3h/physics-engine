@@ -68,7 +68,9 @@ Vector2D Object::calculateAcceleration() const {
 
 // Constructor for Square
 Square::Square(int id, float mass, const Vector2D& position, const Vector2D& velocity, float sideLength)
-    : Object(id, mass, position, velocity), sideLength(sideLength) {}
+    : Object(id, mass, position, velocity), sideLength(sideLength) {
+    collider = new AABBCollider(position, sideLength, sideLength);
+}
 
 float Square::getSideLength() const {
     return sideLength;
@@ -84,7 +86,9 @@ float Square::calculateArea() const {
 
 // Constructor for Rectangle
 Rectangle::Rectangle(int id, float mass, const Vector2D& position, const Vector2D& velocity, float width, float height)
-    : Object(id, mass, position, velocity), width(width), height(height) {}
+    : Object(id, mass, position, velocity), width(width), height(height) {
+    collider = new AABBCollider(position, width, height);
+}
 
 float Rectangle::getWidth() const {
     return width;
@@ -105,7 +109,9 @@ float Rectangle::calculateArea() const {
 
 // Constructor for Circle
 Circle::Circle(int id, float mass, const Vector2D& position, const Vector2D& velocity, float radius)
-    : Object(id, mass, position, velocity), radius(radius) {}
+    : Object(id, mass, position, velocity), radius(radius) {
+    collider = new CircleCollider(position, radius);
+}
 
 float Circle::getRadius() const {
     return radius;
@@ -121,7 +127,9 @@ float Circle::calculateArea() const {
 
 // Constructor for CustomShape
 CustomShape::CustomShape(int id, float mass, const Vector2D& position, const Vector2D& velocity, const std::vector<Vector2D>& vertices)
-    : Object(id, mass, position, velocity), vertices(vertices) {}
+    : Object(id, mass, position, velocity), vertices(vertices) {
+    collider = new AABBCollider(position, calculateBoundingBoxWidth(), calculateBoundingBoxHeight());
+}
 
 const std::vector<Vector2D>& CustomShape::getVertices() const {
     return vertices;
@@ -129,29 +137,46 @@ const std::vector<Vector2D>& CustomShape::getVertices() const {
 
 void CustomShape::setVertices(const std::vector<Vector2D>& vertices) {
     this->vertices = vertices;
+    // Update the collider when vertices change
+    delete collider;
+    collider = new AABBCollider(position, calculateBoundingBoxWidth(), calculateBoundingBoxHeight());
 }
 
-// Calculate the area of the custom polygon using the Shoelace formula
 float CustomShape::calculateArea() const {
     return calculatePolygonArea();
 }
 
-// Helper function to calculate polygon area using the Shoelace formula
 float CustomShape::calculatePolygonArea() const {
     float area = 0.0f;
     int n = vertices.size();
     
-    // Ensure we have at least 3 vertices to form a valid polygon
-    if (n < 3) {
-        return 0.0f;  // No area for invalid polygon
-    }
+    if (n < 3) return 0.0f;  // No area for invalid polygon
 
     for (int i = 0; i < n; i++) {
-        const Vector2D& current = vertices[i];         // Current vertex
-        const Vector2D& next = vertices[(i + 1) % n];  // Next vertex (wrap around using modulus)
-        
+        const Vector2D& current = vertices[i];
+        const Vector2D& next = vertices[(i + 1) % n];
         area += (current.x * next.y) - (next.x * current.y);
     }
     
-    return 0.5f * std::abs(area);  // Return the absolute value of the area
+    return 0.5f * std::abs(area);
+}
+
+float CustomShape::calculateBoundingBoxWidth() const {
+    if (vertices.empty()) return 0.0f;
+    float minX = vertices[0].x, maxX = vertices[0].x;
+    for (const Vector2D& v : vertices) {
+        if (v.x < minX) minX = v.x;
+        if (v.x > maxX) maxX = v.x;
+    }
+    return maxX - minX;
+}
+
+float CustomShape::calculateBoundingBoxHeight() const {
+    if (vertices.empty()) return 0.0f;
+    float minY = vertices[0].y, maxY = vertices[0].y;
+    for (const Vector2D& v : vertices) {
+        if (v.y < minY) minY = v.y;
+        if (v.y > maxY) maxY = v.y;
+    }
+    return maxY - minY;
 }
