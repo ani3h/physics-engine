@@ -27,19 +27,9 @@ The simulation will support:
 │   │   ├── physics_world.cpp/.h (physics simulation logic)
 │   │   └── collider.cpp/.h (collision detection logic)
 │   ├── java/
-│   │   ├── PhysicsSimulation.java (Java entry point)
-│   │   └── jni/
-│   │       └── PhysicsEngineJNI.java (Java JNI wrapper to call C++ methods)
-│   └── nextjs/
-│       ├── pages/
-│       │   ├── index.js (main Next.js page for simulation control)
-│       │   └── api/
-│       │       └── simulation.js (API to communicate with the C++ engine via Java)
-│       ├── components/
-│       │   ├── ControlPanel.js (Component for user controls such as adding objects, forces, etc.)
-│       │   └── SimulationCanvas.js (Component for rendering the simulation visualization)
-│       └── public/
-│           └── assets/ (Static files like icons, images)
+│       ├── PhysicsSimulation.java (Java entry point)
+│       └── jni/
+│           └── PhysicsEngineJNI.java (Java JNI wrapper to call C++ methods)
 ├── tests/
 │   ├── cpp/
 │   │   ├── test_object.cpp (Tests for object class)
