@@ -74,7 +74,7 @@ To install the package, you can use pip with the URL of the GitHub repository.
    ```
    Compile the Java frontend and JNI integration:
    ```bash
-   javac -cp . -d . PhysicsSimulation.java jni/PhysicsEngineJNI.java
+   javac -d . PhysicsSimulation.java jni/PhysicsEngineJNI.java
    ```
    If the JNI header (jni.h) is not already generated, run:
    ```bash
@@ -82,21 +82,13 @@ To install the package, you can use pip with the URL of the GitHub repository.
    ```
    This generates jni_PhysicsEngineJNI.h and should be included in your C++ code for JNI communication.
    
-6. **Set Up Next.js Frontend:**
+6. **Set Up JavaFX GUI:**
    
-   Navigate to the src/nextjs/ directory:
+   Ensure the JavaFX SDK is downloaded and properly configured.
+   Run the JavaFX application with the correct --module-path for the JavaFX SDK:
    ```bash
-   cd ../../src/nextjs
+   java --module-path /path/to/javafx-sdk/lib --add-modules javafx.controls,javafx.fxml -cp . PhysicsSimulation
    ```
-   Install the required Node.js dependencies:
-   ```bash
-   npm install
-   ```
-   Start the Next.js development server:
-   ```bash
-   npm run dev
-   ```
-   This will launch the frontend on http://localhost:3000.
 
 8. **Run the Simulation:**
    
@@ -104,9 +96,9 @@ To install the package, you can use pip with the URL of the GitHub repository.
    ```bash
    export LD_LIBRARY_PATH=../../lib:$LD_LIBRARY_PATH
    ```
-   Execute the Java program, which will invoke the C++ physics engine via JNI:
+   Execute the Java middleware to connect the console-based input or JavaFX GUI with the C++ physics engine:
    ```bash
    java PhysicsSimulation 
    ```
 **Note:**
-   Make sure you have the necessary tools and dependencies installed for both Java and Node.js to run the respective environments.
+   Make sure you have the necessary tools and dependencies installed for both Java and JavaFX to run the respective environments.
