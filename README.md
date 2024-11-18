@@ -12,31 +12,35 @@ The simulation will support:
 ## Project Directory Structure
 ```
 ├── docs/
-│   └── Physics Simulation Engine (for project documentation)
+│   └── Physics Simulation Engine (project documentation)
 ├── include/
 │   └── jni.h (generated JNI header for C++ integration)
 ├── lib/
 │   └── libPhysicsEngine.so (compiled shared library for the physics engine)
 ├── resources/
-│   └── temp (resource files such as images, config files, etc.)
+│   └── temp/ (resource files such as images, config files, etc.)
 ├── src/
 │   ├── cpp/
 │   │   ├── main.cpp (entry point for the C++ engine)
 │   │   ├── object.cpp/.h (object properties and methods)
-│   │   ├── forces.cpp/.h (forces properties and methods)
-│   │   ├── physics_world.cpp/.h (physics simulation logic)
-│   │   └── collider.cpp/.h (collision detection logic)
+│   │   ├── forces.cpp/.h (force application properties and methods)
+│   │   ├── physics_world.cpp/.h (core physics simulation logic)
+│   │   └── collider.cpp/.h (collision detection and response logic)
 │   ├── java/
-│       ├── PhysicsSimulation.java (Java entry point)
-│       └── jni/
-│           └── PhysicsEngineJNI.java (Java JNI wrapper to call C++ methods)
+│   │   ├── PhysicsSimulation.java (Java entry point)
+│   │   └── jni/
+│   │       └── PhysicsEngineJNI.java (Java JNI wrapper to call C++ methods)
+│   └── frontend/
+│       ├── components/ (React components for the Next.js frontend)
+│       ├── pages/ (Next.js pages for the simulation interface)
+│       └── api/ (API endpoints for frontend-backend communication)
 ├── tests/
 │   ├── cpp/
-│   │   ├── test_object.cpp (Tests for object class)
-│   │   ├── test_collider.cpp (Tests for collision detection)
-│   │   └── test_physics_world.cpp (Tests for core simulation logic)
-│   ├── java/ (Integration tests for Java and C++ interaction)
-│   └── nextjs/ (Tests for frontend functionality and API interactions)
+│   │   ├── test_object.cpp (unit tests for object class)
+│   │   ├── test_collider.cpp (unit tests for collision detection)
+│   │   └── test_physics_world.cpp (unit tests for core simulation logic)
+│   ├── java/ (integration tests for Java and C++ interaction)
+│   └── nextjs/ (tests for frontend functionality and API interactions)
 ├── .gitignore
 └── README.md
 ```
