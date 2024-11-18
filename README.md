@@ -27,20 +27,19 @@ The simulation will support:
 │   │   ├── physics_world.cpp/.h (core physics simulation logic)
 │   │   └── collider.cpp/.h (collision detection and response logic)
 │   ├── java/
-│   │   ├── PhysicsSimulation.java (Java entry point)
+│   │   ├── PhysicsSimulation.java (Java entry point for middleware)
+│   │   ├── GUIController.java (JavaFX controller for handling UI interactions)
+│   │   ├── SimulationApp.java (main entry point for JavaFX GUI)
 │   │   └── jni/
 │   │       └── PhysicsEngineJNI.java (Java JNI wrapper to call C++ methods)
-│   └── frontend/
-│       ├── components/ (React components for the Next.js frontend)
-│       ├── pages/ (Next.js pages for the simulation interface)
-│       └── api/ (API endpoints for frontend-backend communication)
 ├── tests/
 │   ├── cpp/
 │   │   ├── test_object.cpp (unit tests for object class)
 │   │   ├── test_collider.cpp (unit tests for collision detection)
 │   │   └── test_physics_world.cpp (unit tests for core simulation logic)
-│   ├── java/ (integration tests for Java and C++ interaction)
-│   └── nextjs/ (tests for frontend functionality and API interactions)
+│   ├── java/
+│   │   ├── test_jni_integration.java (integration tests for Java and C++ interaction)
+│   │   └── test_gui_interaction.java (tests for JavaFX GUI interactions)
 ├── .gitignore
 └── README.md
 ```
