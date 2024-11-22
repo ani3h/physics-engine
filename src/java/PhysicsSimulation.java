@@ -1,29 +1,15 @@
-package java;
-//package com.java;
-import java.util.Scanner; 
+// File: src/java/PhysicsSimulation.java
+package JAVA;
+import JAVA.jni.PhysicsEngineJNI;  // Updated import to match new package structure
+import java.util.Scanner;
 
 public class PhysicsSimulation {
-    // Load the native library containing C++ implementations
-    static {
-        System.loadLibrary("physics_native");
-    }
-
-    // Native method declarations for C++ functions
-    private native void handleCollisions(long worldPtr);
-    private native long createPhysicsWorld();
-    private native void deletePhysicsWorld(long worldPtr);
-    private native void addObject(long worldPtr, int id, double mass, double posX, double posY, 
-                                double velX, double velY, char shape, double... dimensions);
-    private native void configureForces(long worldPtr, int choice, double... params);
-    private native void stepSimulation(long worldPtr, double deltaTime);
-    private native void displayObjectInfo(long worldPtr, int objectId);
-
     private static Scanner scanner = new Scanner(System.in);
     private long worldPtr;
     private int nextId = 1;
 
     public PhysicsSimulation() {
-        worldPtr = createPhysicsWorld();
+        worldPtr = PhysicsEngineJNI.createPhysicsWorld();
     }
 
     private static <T extends Number> T getValidInput(String prompt, Class<T> type) {
@@ -45,37 +31,42 @@ public class PhysicsSimulation {
 
     public void run() {
         boolean running = true;
-        System.out.println("Welcome to the Enhanced Physics Simulation!");
+        System.out.println("Welcome to the Physics Simulation!");
 
         while (running) {
-            System.out.println("\n=== Physics Simulation Menu ===");
-            System.out.println("1. Add new object");
-            System.out.println("2. Configure forces");
-            System.out.println("3. Handle collisions");
-            System.out.println("4. Step simulation");
-            System.out.println("5. Exit");
+            try {
+                System.out.println("\n=== Physics Simulation Menu ===");
+                System.out.println("1. Add new object");
+                System.out.println("2. Configure forces");
+                System.out.println("3. Handle collisions");
+                System.out.println("4. Step simulation");
+                System.out.println("5. Exit");
 
-            int choice = getValidInput("Enter your choice (1-5): ", Integer.class);
+                int choice = getValidInput("Enter your choice (1-5): ", Integer.class);
 
-            switch (choice) {
-                case 1:
-                    handleAddObject();
-                    break;
-                case 2:
-                    handleConfigureForces();
-                    break;
-                case 3:
-                    handleCollisions(worldPtr);
-                    break;
-                case 4:
-                    handleStepSimulation();
-                    break;
-                case 5:
-                    running = false;
-                    System.out.println("Thank you for using the Enhanced Physics Simulation!");
-                    break;
-                default:
-                    System.out.println("Invalid choice. Please try again.");
+                switch (choice) {
+                    case 1:
+                        handleAddObject();
+                        break;
+                    case 2:
+                        handleConfigureForces();
+                        break;
+                    case 3:
+                        PhysicsEngineJNI.handleCollisions(worldPtr);
+                        break;
+                    case 4:
+                        handleStepSimulation();
+                        break;
+                    case 5:
+                        running = false;
+                        System.out.println("Thank you for using the Physics Simulation!");
+                        break;
+                    default:
+                        System.out.println("Invalid choice. Please try again.");
+                }
+            } catch (Exception e) {
+                System.err.println("Error: " + e.getMessage());
+                e.printStackTrace();
             }
         }
     }
@@ -119,7 +110,7 @@ public class PhysicsSimulation {
                 return;
         }
 
-        addObject(worldPtr, nextId++, mass, posX, posY, velX, velY, shape, dimensions);
+        PhysicsEngineJNI.addObject(worldPtr, nextId++, mass, posX, posY, velX, velY, shape, dimensions);
         System.out.println("Object created successfully!");
     }
 
@@ -135,23 +126,23 @@ public class PhysicsSimulation {
             case 1:
                 double mu_s = getValidInput("Enter static friction coefficient (mu_s): ", Double.class);
                 double mu_k = getValidInput("Enter kinetic friction coefficient (mu_k): ", Double.class);
-                configureForces(worldPtr, choice, mu_s, mu_k);
+                PhysicsEngineJNI.configureForces(worldPtr, choice, mu_s, mu_k);
                 break;
             case 2:
                 double g = getValidInput("Enter gravitational acceleration (g): ", Double.class);
-                configureForces(worldPtr, choice, g);
+                PhysicsEngineJNI.configureForces(worldPtr, choice, g);
                 break;
         }
     }
 
     private void handleStepSimulation() {
         double deltaTime = getValidInput("Enter time step (in seconds): ", Double.class);
-        stepSimulation(worldPtr, deltaTime);
+        PhysicsEngineJNI.stepSimulation(worldPtr, deltaTime);
         System.out.println("\nSimulation stepped forward by " + deltaTime + " seconds.");
     }
 
     public void cleanup() {
-        deletePhysicsWorld(worldPtr);
+        PhysicsEngineJNI.deletePhysicsWorld(worldPtr);
     }
 
     public static void main(String[] args) {
@@ -163,4 +154,3 @@ public class PhysicsSimulation {
         }
     }
 }
-
