@@ -104,9 +104,7 @@ public class GUIController {
         double velY = 0;
 
         try {
-            PhysicsEngineJNI.addObject(worldPtr, nextId++, defaultMass, 
-                                     posX, posY, velX, velY, 
-                                     shapeChar, dimensions);
+            PhysicsEngineJNI.addObject(worldPtr, nextId++, defaultMass, posX, posY, velX, velY, shapeChar, dimensions);
             render();
         } catch (Exception e) {
             showError("Failed to add object: " + e.getMessage());
