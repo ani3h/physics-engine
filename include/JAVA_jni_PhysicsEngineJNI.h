@@ -71,6 +71,14 @@ JNIEXPORT void JNICALL Java_JAVA_jni_PhysicsEngineJNI_displayObjectInfo
 JNIEXPORT jobject JNICALL Java_JAVA_jni_PhysicsEngineJNI_getObjectState
   (JNIEnv *, jclass, jlong, jint);
 
+/*
+ * Class:     JAVA_jni_PhysicsEngineJNI
+ * Method:    updateObjectState
+ * Signature: (JIDDDD)V
+ */
+JNIEXPORT void JNICALL Java_JAVA_jni_PhysicsEngineJNI_updateObjectState
+  (JNIEnv *, jclass, jlong, jint, jdouble, jdouble, jdouble, jdouble);
+
 #ifdef __cplusplus
 }
 #endif

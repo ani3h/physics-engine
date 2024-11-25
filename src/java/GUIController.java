@@ -18,7 +18,9 @@ public class GUIController {
     private int nextId = 1;
     private Random random;
     private Map<Integer, ShapeInfo> objectShapes;  // Store shape information for each object
-    private boolean isShowingVectors = false;  // Moved to class level variables
+    private boolean isShowingVectors = false;
+    private static final double GROUND_RESTITUTION = 0.5; // Bounce factor
+    private static final float GROUND_FRICTION = 0.3f;    // Ground friction coefficient
 
     private static class ShapeInfo {
         char type;
@@ -61,12 +63,78 @@ public class GUIController {
         if (isRunning) {
             PhysicsEngineJNI.stepSimulation(worldPtr, deltaTime);
             PhysicsEngineJNI.handleCollisions(worldPtr);
+            handleGroundCollisions();  // Added ground collision handling
             render();
+        }
+    }
+
+    private void handleGroundCollisions() {
+        for (Map.Entry<Integer, ShapeInfo> entry : objectShapes.entrySet()) {
+            int id = entry.getKey();
+            ShapeInfo shapeInfo = entry.getValue();
+            
+            ObjectState state = PhysicsEngineJNI.getObjectState(worldPtr, id);
+            if (state == null) continue;
+
+            double objectBottom = state.getPosY();
+            double groundY = canvas.getHeight() - 5; // Slight offset for visual ground line
+
+            // Calculate bottom position based on shape type
+            switch (shapeInfo.type) {
+                case 'R': // Rectangle
+                    objectBottom += shapeInfo.dimensions[1];
+                    break;
+                case 'C': // Circle
+                    objectBottom += shapeInfo.dimensions[0] * 2;
+                    break;
+                case 'S': // Square
+                    objectBottom += shapeInfo.dimensions[0];
+                    break;
+            }
+
+            // Check for ground collision
+            if (objectBottom > groundY) {
+                double newY = groundY;
+                
+                // Adjust position based on shape type
+                switch (shapeInfo.type) {
+                    case 'R': // Rectangle
+                        newY -= shapeInfo.dimensions[1];
+                        break;
+                    case 'C': // Circle
+                        newY -= shapeInfo.dimensions[0] * 2;
+                        break;
+                    case 'S': // Square
+                        newY -= shapeInfo.dimensions[0];
+                        break;
+                }
+
+                // Apply collision response
+                double velY = state.getVelY();
+                if (velY > 0) { // Only bounce if moving downward
+                    // Apply restitution (bounce)
+                    double newVelY = -velY * GROUND_RESTITUTION;
+                    
+                    // Apply friction to horizontal velocity
+                    double velX = state.getVelX();
+                    double newVelX = velX * (1 - GROUND_FRICTION);
+                    
+                    // Update object state with new position and velocity
+                    PhysicsEngineJNI.updateObjectState(worldPtr, id, 
+                                                     state.getPosX(), newY,
+                                                     newVelX, newVelY);
+                }
+            }
         }
     }
 
     private void render() {
         clearCanvas();
+        
+        // Draw the ground line
+        gc.setStroke(Color.BLACK);
+        gc.setLineWidth(2);
+        gc.strokeLine(0, canvas.getHeight() - 5, canvas.getWidth(), canvas.getHeight() - 5);
         
         // Render each object based on its current state
         for (Map.Entry<Integer, ShapeInfo> entry : objectShapes.entrySet()) {
@@ -145,8 +213,7 @@ public class GUIController {
         }
 
         double posX = random.nextDouble() * (canvas.getWidth() - dimensions[0]);
-        double posY = random.nextDouble() * (canvas.getHeight() - 
-                     (shapeChar == 'C' ? dimensions[0] * 2 : dimensions[shapeChar == 'R' ? 1 : 0]));
+        double posY = random.nextDouble() * (canvas.getHeight() * 0.5); // Only spawn in top half
         
         addObjectAtPosition(posX, posY, defaultMass, shapeChar, dimensions, color);
     }

@@ -34,4 +34,5 @@ public class PhysicsEngineJNI {
     public static native void stepSimulation(long worldPtr, double deltaTime);
     public static native void displayObjectInfo(long worldPtr, int objectId);
     public static native ObjectState getObjectState(long worldPtr, int objectId);
+    public static native void updateObjectState(long worldPtr, int id, double posX, double posY, double velX, double velY);
 }
