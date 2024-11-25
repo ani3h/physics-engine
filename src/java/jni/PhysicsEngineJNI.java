@@ -1,6 +1,8 @@
 // File: src/JAVA/jni/PhysicsEngineJNI.java
 package JAVA.jni;
 
+import JAVA.ObjectState;
+
 public class PhysicsEngineJNI {
     static {
         try {
@@ -31,4 +33,5 @@ public class PhysicsEngineJNI {
     public static native void configureForces(long worldPtr, int choice, double... params);
     public static native void stepSimulation(long worldPtr, double deltaTime);
     public static native void displayObjectInfo(long worldPtr, int objectId);
+    public static native ObjectState getObjectState(long worldPtr, int objectId);
 }
