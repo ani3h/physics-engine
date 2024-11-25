@@ -1,8 +1,6 @@
 // File: src/JAVA/jni/PhysicsEngineJNI.java
 package JAVA.jni;
 
-import java.util.Scanner;
-
 public class PhysicsEngineJNI {
     static {
         try {

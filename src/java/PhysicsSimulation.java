@@ -1,7 +1,8 @@
 // File: src/java/PhysicsSimulation.java
 package JAVA;
-import JAVA.jni.PhysicsEngineJNI;  // Updated import to match new package structure
-import java.util.Scanner;
+import java.util.Scanner;  // Updated import to match new package structure
+
+import JAVA.jni.PhysicsEngineJNI;
 
 public class PhysicsSimulation {
     private static Scanner scanner = new Scanner(System.in);
