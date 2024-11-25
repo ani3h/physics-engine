@@ -61,7 +61,7 @@ To install the package, you can use pip with the URL of the GitHub repository.
 
 1. **Clone the Repository:**
    ```bash
-   git clone https://github.com/your-username/physics-engine
+   git clone https://github.com/ani3h/physics-engine.git
    cd physics-engine
    ```
    
