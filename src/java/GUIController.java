@@ -5,7 +5,7 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 import javafx.scene.control.Alert;
 import javafx.scene.control.TextInputDialog;
-import javafx.scene.control.ChoiceDialog;  // Added import for ChoiceDialog
+import javafx.scene.control.ChoiceDialog;
 import JAVA.jni.PhysicsEngineJNI;
 import java.util.*;
 
@@ -18,7 +18,7 @@ public class GUIController {
     private int nextId = 1;
     private Random random;
     private Map<Integer, ShapeInfo> objectShapes;  // Store shape information for each object
-    private boolean isShowingVectors = false;
+    private boolean isShowingVectors = false;  // Moved to class level variables
 
     private static class ShapeInfo {
         char type;
@@ -50,6 +50,13 @@ public class GUIController {
         clearCanvas();
     }
 
+    private void clearCanvas() {
+        gc.setFill(Color.WHITE);
+        gc.fillRect(0, 0, canvas.getWidth(), canvas.getHeight());
+        gc.setStroke(Color.BLACK);
+        gc.strokeRect(0, 0, canvas.getWidth(), canvas.getHeight());
+    }
+
     public void update(double deltaTime) {
         if (isRunning) {
             PhysicsEngineJNI.stepSimulation(worldPtr, deltaTime);
@@ -74,13 +81,19 @@ public class GUIController {
             
             switch (shapeInfo.type) {
                 case 'R': // Rectangle
-                    gc.fillRect(state.getPosX(), state.getPosY(), shapeInfo.dimensions[0], shapeInfo.dimensions[1]);  // Fixed: Use height from dimensions[1]
+                    gc.fillRect(state.getPosX(), state.getPosY(),
+                              shapeInfo.dimensions[0], 
+                              shapeInfo.dimensions[1]);
                     break;
                 case 'C': // Circle
-                    gc.fillOval(state.getPosX(), state.getPosY(), shapeInfo.dimensions[0] * 2, shapeInfo.dimensions[0] * 2);
+                    gc.fillOval(state.getPosX(), state.getPosY(),
+                              shapeInfo.dimensions[0] * 2, 
+                              shapeInfo.dimensions[0] * 2);
                     break;
                 case 'S': // Square
-                    gc.fillRect(state.getPosX(), state.getPosY(), shapeInfo.dimensions[0], shapeInfo.dimensions[0]);
+                    gc.fillRect(state.getPosX(), state.getPosY(),
+                              shapeInfo.dimensions[0], 
+                              shapeInfo.dimensions[0]);
                     break;
             }
             
@@ -90,31 +103,28 @@ public class GUIController {
                 gc.setLineWidth(2);
                 double startX = state.getPosX();
                 double startY = state.getPosY();
-                double endX = startX + state.getVelX() * 10; // Scale factor for better visualization
+                double endX = startX + state.getVelX() * 10;
                 double endY = startY + state.getVelY() * 10;
                 gc.strokeLine(startX, startY, endX, endY);
                 
                 // Draw arrowhead
                 double angle = Math.atan2(endY - startY, endX - startX);
                 double arrowLength = 10;
-                gc.strokeLine(endX, endY, endX - arrowLength * Math.cos(angle - Math.PI/6), endY - arrowLength * Math.sin(angle - Math.PI/6));
-                gc.strokeLine(endX, endY, endX - arrowLength * Math.cos(angle + Math.PI/6), endY - arrowLength * Math.sin(angle + Math.PI/6));
+                gc.strokeLine(endX, endY, 
+                            endX - arrowLength * Math.cos(angle - Math.PI/6),
+                            endY - arrowLength * Math.sin(angle - Math.PI/6));
+                gc.strokeLine(endX, endY,
+                            endX - arrowLength * Math.cos(angle + Math.PI/6),
+                            endY - arrowLength * Math.sin(angle + Math.PI/6));
             }
         }
-    }
-
-    private void clearCanvas() {
-        gc.setFill(Color.WHITE);
-        gc.fillRect(0, 0, canvas.getWidth(), canvas.getHeight());
-        gc.setStroke(Color.BLACK);
-        gc.strokeRect(0, 0, canvas.getWidth(), canvas.getHeight());
     }
 
     public void handleAddObject(String shapeType) {
         double defaultMass = 1.0;
         double[] dimensions;
         char shapeChar;
-        Color color = Color.color(random.nextDouble(), random.nextDouble(), random.nextDouble()); // Random color
+        Color color = Color.color(random.nextDouble(), random.nextDouble(), random.nextDouble());
 
         switch (shapeType.toUpperCase()) {
             case "RECTANGLE":
@@ -134,7 +144,6 @@ public class GUIController {
                 return;
         }
 
-        // Generate random position within canvas bounds
         double posX = random.nextDouble() * (canvas.getWidth() - dimensions[0]);
         double posY = random.nextDouble() * (canvas.getHeight() - 
                      (shapeChar == 'C' ? dimensions[0] * 2 : dimensions[shapeChar == 'R' ? 1 : 0]));
@@ -219,8 +228,6 @@ public class GUIController {
         alert.setContentText(message);
         alert.showAndWait();
     }
-
-    private boolean isShowingVectors = false;
 
     public void toggleVectorDisplay() {
         isShowingVectors = !isShowingVectors;
