@@ -22,7 +22,6 @@ The simulation will support:
 │   ├── JAVA_jni_PhysicsEngineJNI
 │   └── jni.h (generated JNI header for C++ integration)
 ├── lib/
-│   ├── libPhysicsEngine.so
 │   └── libphysics_native.dylib (compiled shared library for the physics engine, generated on run)
 ├── resources/
 │   └── javafx-sdk-23.0.1/ (javafx sdk)
@@ -59,13 +58,19 @@ The simulation will support:
 
 To install the package, you can use pip with the URL of the GitHub repository.
 
+To use the package, you can follow the steps below:
+
 1. **Clone the Repository:**
    ```bash
    git clone https://github.com/ani3h/physics-engine.git
    cd physics-engine
    ```
    
-2. **Make the build script executable:**
+2. **Install JavaFX SDK:**
+   
+   Download the JavaFX SDK from the official website and extract it to the `resources/` directory, as seen in the directory structure.
+
+3. **Make the build script executable:**
    
    Navigate to the root directory(Physics Engine):
    ```bash
@@ -74,7 +79,7 @@ To install the package, you can use pip with the URL of the GitHub repository.
    
    This will compile the Java Code, generate JNI headers, compile the C++ code, create native library.
    
-3. **Run the executabale:**
+4. **Run the executabale:**
    
    Navigate to the src/java/ directory:
    ```bash
