@@ -1,3 +1,74 @@
-.DS_STORE
-resources
-.vscode
+# IDE specific files
+.vscode/
+.idea/
+*.iml
+.eclipse
+.project
+.classpath
+.settings/
+
+# Compiled files
+*.class
+/bin/
+/target/
+/build/
+out/
+
+# Package files
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# JavaFX runtime components
+resources/
+
+# Native libraries and build artifacts
+*.so
+*.dylib
+*.dll
+*.jnilib
+
+# Logs and databases
+*.log
+*.sqlite
+*.db
+
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+
+# Temporary files
+*.swp
+*~
+.*.sw[a-p]
+
+# Maven specific
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+
+# Debug files
+hs_err_pid*
+replay_pid*
+
+# Local configuration file (if you use one)
+application.properties
+application.yml
+config.properties
+
+# Exception: Include these if needed
+!lib/*.jar
+!resources/config/
