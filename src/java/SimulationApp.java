@@ -1,15 +1,12 @@
 package JAVA;
 
 import javafx.application.Application;
-import javafx.fxml.FXMLLoader;
-import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 import javafx.scene.layout.VBox;
-import javafx.scene.canvas.Canvas;
-import javafx.scene.control.Button;
-import javafx.scene.control.ComboBox;
 import javafx.scene.layout.HBox;
+import javafx.scene.canvas.Canvas;
+import javafx.scene.control.*;
 import javafx.geometry.Insets;
 import javafx.animation.AnimationTimer;
 import JAVA.jni.PhysicsEngineJNI;
@@ -35,15 +32,29 @@ public class SimulationApp extends Application {
         
         // Create control buttons
         HBox controls = new HBox(10);
-        Button addObjectBtn = new Button("Add Object");
-        Button startBtn = new Button("Start");
-        Button pauseBtn = new Button("Pause");
-        Button resetBtn = new Button("Reset");
+        
+        // Object controls
         ComboBox<String> objectType = new ComboBox<>();
         objectType.getItems().addAll("Rectangle", "Circle", "Square");
         objectType.setValue("Rectangle");
-
-        controls.getChildren().addAll(objectType, addObjectBtn, startBtn, pauseBtn, resetBtn);
+        Button addObjectBtn = new Button("Add Object");
+        
+        // Simulation controls
+        Button startBtn = new Button("Start");
+        Button pauseBtn = new Button("Pause");
+        Button resetBtn = new Button("Reset");
+        
+        // Physics controls
+        Button configureBtn = new Button("Configure Physics");
+        ToggleButton showVectorsBtn = new ToggleButton("Show Vectors");
+        
+        controls.getChildren().addAll(
+            objectType, addObjectBtn,
+            new Separator(),
+            startBtn, pauseBtn, resetBtn,
+            new Separator(),
+            configureBtn, showVectorsBtn
+        );
 
         // Add components to root
         root.getChildren().addAll(canvas, controls);
@@ -56,6 +67,9 @@ public class SimulationApp extends Application {
         startBtn.setOnAction(e -> controller.startSimulation());
         pauseBtn.setOnAction(e -> controller.pauseSimulation());
         resetBtn.setOnAction(e -> controller.resetSimulation());
+        showVectorsBtn.setOnAction(e -> controller.toggleVectorDisplay());
+        
+        configureBtn.setOnAction(e -> showConfigurationDialog());
 
         // Create game loop
         gameLoop = new AnimationTimer() {
@@ -68,18 +82,15 @@ public class SimulationApp extends Application {
                     return;
                 }
                 
-                // Convert nanoseconds to seconds
-                double deltaTime = (now - lastUpdate) * 1e-9;
+                double deltaTime = (now - lastUpdate) * 1e-9; // Convert nanoseconds to seconds
                 lastUpdate = now;
                 
-                // Update physics and redraw
                 if (controller.isRunning()) {
                     controller.update(deltaTime);
                 }
             }
         };
         
-        // Start the game loop
         gameLoop.start();
 
         // Create and show the scene
@@ -89,9 +100,65 @@ public class SimulationApp extends Application {
         primaryStage.show();
     }
 
+    private void showConfigurationDialog() {
+        Dialog<Void> dialog = new Dialog<>();
+        dialog.setTitle("Physics Configuration");
+        dialog.setHeaderText("Configure Physics Parameters");
+
+        // Create the content
+        VBox content = new VBox(10);
+        content.setPadding(new Insets(10));
+
+        // Gravity control
+        Label gravityLabel = new Label("Gravity (m/s²):");
+        Slider gravitySlider = new Slider(0, 20, 9.81);
+        gravitySlider.setShowTickLabels(true);
+        gravitySlider.setShowTickMarks(true);
+
+        // Friction controls
+        Label frictionLabel = new Label("Friction Coefficients:");
+        
+        Label staticLabel = new Label("Static Friction:");
+        Slider staticSlider = new Slider(0, 1, 0.5);
+        staticSlider.setShowTickLabels(true);
+        
+        Label kineticLabel = new Label("Kinetic Friction:");
+        Slider kineticSlider = new Slider(0, 1, 0.3);
+        kineticSlider.setShowTickLabels(true);
+
+        content.getChildren().addAll(
+            gravityLabel, gravitySlider,
+            frictionLabel,
+            staticLabel, staticSlider,
+            kineticLabel, kineticSlider
+        );
+
+        // Add apply button
+        ButtonType applyButtonType = new ButtonType("Apply", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(applyButtonType, ButtonType.CANCEL);
+
+        // Set the content
+        dialog.getDialogPane().setContent(content);
+
+        // Handle the apply action
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == applyButtonType) {
+                // Configure gravity
+                double[] gravityParams = {gravitySlider.getValue()};
+                PhysicsEngineJNI.configureForces(worldPtr, 2, gravityParams);
+
+                // Configure friction
+                double[] frictionParams = {staticSlider.getValue(), kineticSlider.getValue()};
+                PhysicsEngineJNI.configureForces(worldPtr, 1, frictionParams);
+            }
+            return null;
+        });
+
+        dialog.showAndWait();
+    }
+
     @Override
     public void stop() {
-        // Clean up resources
         if (gameLoop != null) {
             gameLoop.stop();
         }
