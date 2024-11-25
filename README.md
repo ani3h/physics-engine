@@ -14,22 +14,32 @@ The simulation will support:
 ├── docs/
 │   └── Physics Simulation Engine (project documentation)
 ├── include/
+│   ├── colldier.h (collision detection and response logic)
+│   ├── object.h (object properties and methods)
+│   ├── forces.h (force application properties and methods)
+│   ├── vector2d.h (2D vector operations)
+│   ├── physics_native.h (Implementation of JNI methods)
+│   ├── JAVA_jni_PhysicsEngineJNI
 │   └── jni.h (generated JNI header for C++ integration)
 ├── lib/
-│   └── libPhysicsEngine.so (compiled shared library for the physics engine)
+│   ├── libPhysicsEngine.so
+│   └── libphysics_native.dylib (compiled shared library for the physics engine, generated on run)
 ├── resources/
-│   └── temp/ (resource files such as images, config files, etc.)
+│   └── javafx-sdk-23.0.1/ (javafx sdk)
+│          └── lib/
+│              └── ... (javafx library files)
 ├── src/
+│   ├── module-info.java (defining properties of a module)
 │   ├── cpp/
-│   │   ├── main.cpp (entry point for the C++ engine)
-│   │   ├── object.cpp/.h (object properties and methods)
-│   │   ├── forces.cpp/.h (force application properties and methods)
-│   │   ├── physics_world.cpp/.h (core physics simulation logic)
-│   │   └── collider.cpp/.h (collision detection and response logic)
-│   ├── java/
+│   │   ├── collider.cpp (collision detection and response logic)
+│   │   ├── forces.cpp (force application properties and methods)
+│   │   ├── physics_native.cpp (Implementation of JNI methods)
+│   │   └── object.cpp (object properties and methods)
+│   ├── JAVA/
 │   │   ├── PhysicsSimulation.java (Java entry point for middleware)
 │   │   ├── GUIController.java (JavaFX controller for handling UI interactions)
 │   │   ├── SimulationApp.java (main entry point for JavaFX GUI)
+│   │   ├── ObjectState.java (hold physics state information)
 │   │   └── jni/
 │   │       └── PhysicsEngineJNI.java (Java JNI wrapper to call C++ methods)
 ├── tests/
@@ -40,6 +50,7 @@ The simulation will support:
 │   ├── java/
 │   │   ├── test_jni_integration.java (integration tests for Java and C++ interaction)
 │   │   └── test_gui_interaction.java (tests for JavaFX GUI interactions)
+├── build_and_run.sh (build and run script)
 ├── .gitignore
 └── README.md
 ```
@@ -50,54 +61,27 @@ To install the package, you can use pip with the URL of the GitHub repository.
 
 1. **Clone the Repository:**
    ```bash
-   git clone https://github.com/your-username/physics-engine
+   git clone https://github.com/ani3h/physics-engine.git
    cd physics-engine
    ```
-2. **Set up C++ Environment:**
    
-   Navigate to the src/cpp/ directory:
-   ```bash
-   cd src/cpp
-   ```
-   Compile the C++ physics engine: 
-   ```bash
-   g++ -fPIC -shared -o ../../lib/libPhysicsEngine.so main.cpp object.cpp physics_world.cpp collider.cpp 
-   ```
-   This will generate the libPhysicsEngine.so shared library in the lib/ directory.
+2. **Make the build script executable:**
    
-4. **Set Up Java Environment:**
+   Navigate to the root directory(Physics Engine):
+   ```bash
+   chmod +x build_and_run.sh
+   ```
+   
+   This will compile the Java Code, generate JNI headers, compile the C++ code, create native library.
+   
+3. **Run the executabale:**
    
    Navigate to the src/java/ directory:
    ```bash
-   cd ../../src/java
-   ```
-   Compile the Java frontend and JNI integration:
-   ```bash
-   javac -d . PhysicsSimulation.java jni/PhysicsEngineJNI.java
-   ```
-   If the JNI header (jni.h) is not already generated, run:
-   ```bash
-   javah -jni jni.PhysicsEngineJNI
-   ```
-   This generates jni_PhysicsEngineJNI.h and should be included in your C++ code for JNI communication.
-   
-6. **Set Up JavaFX GUI:**
-   
-   Ensure the JavaFX SDK is downloaded and properly configured.
-   Run the JavaFX application with the correct --module-path for the JavaFX SDK:
-   ```bash
-   java --module-path /path/to/javafx-sdk/lib --add-modules javafx.controls,javafx.fxml -cp . PhysicsSimulation
+   ./build_and_run.sh
    ```
 
-8. **Run the Simulation:**
+   Runs the compiled Java application, and the JavaFX window pops up.
    
-   Ensure that the libPhysicsEngine.so is available in your library path:
-   ```bash
-   export LD_LIBRARY_PATH=../../lib:$LD_LIBRARY_PATH
-   ```
-   Execute the Java middleware to connect the console-based input or JavaFX GUI with the C++ physics engine:
-   ```bash
-   java PhysicsSimulation 
-   ```
 **Note:**
    Make sure you have the necessary tools and dependencies installed for both Java and JavaFX to run the respective environments.
