@@ -5,6 +5,7 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 import javafx.scene.control.Alert;
 import javafx.scene.control.TextInputDialog;
+import javafx.scene.control.ChoiceDialog;  // Added import for ChoiceDialog
 import JAVA.jni.PhysicsEngineJNI;
 import java.util.*;
 
@@ -17,6 +18,7 @@ public class GUIController {
     private int nextId = 1;
     private Random random;
     private Map<Integer, ShapeInfo> objectShapes;  // Store shape information for each object
+    private boolean isShowingVectors = false;
 
     private static class ShapeInfo {
         char type;
@@ -72,9 +74,13 @@ public class GUIController {
             
             switch (shapeInfo.type) {
                 case 'R': // Rectangle
-                    gc.fillRect(state.getPosX(), state.getPosY(),
-                              shapeInfo.dimensions[0], 
-                              shapeInfo.dimensions[0]);
+                    gc.fillRect(state.getPosX(), state.getPosY(), shapeInfo.dimensions[0], shapeInfo.dimensions[1]);  // Fixed: Use height from dimensions[1]
+                    break;
+                case 'C': // Circle
+                    gc.fillOval(state.getPosX(), state.getPosY(), shapeInfo.dimensions[0] * 2, shapeInfo.dimensions[0] * 2);
+                    break;
+                case 'S': // Square
+                    gc.fillRect(state.getPosX(), state.getPosY(), shapeInfo.dimensions[0], shapeInfo.dimensions[0]);
                     break;
             }
             
@@ -91,12 +97,8 @@ public class GUIController {
                 // Draw arrowhead
                 double angle = Math.atan2(endY - startY, endX - startX);
                 double arrowLength = 10;
-                gc.strokeLine(endX, endY, 
-                            endX - arrowLength * Math.cos(angle - Math.PI/6),
-                            endY - arrowLength * Math.sin(angle - Math.PI/6));
-                gc.strokeLine(endX, endY,
-                            endX - arrowLength * Math.cos(angle + Math.PI/6),
-                            endY - arrowLength * Math.sin(angle + Math.PI/6));
+                gc.strokeLine(endX, endY, endX - arrowLength * Math.cos(angle - Math.PI/6), endY - arrowLength * Math.sin(angle - Math.PI/6));
+                gc.strokeLine(endX, endY, endX - arrowLength * Math.cos(angle + Math.PI/6), endY - arrowLength * Math.sin(angle + Math.PI/6));
             }
         }
     }
@@ -238,7 +240,6 @@ public class GUIController {
         clearCanvas();
         nextId = 1;
         objectShapes.clear();
-        // Create new physics world
         PhysicsEngineJNI.deletePhysicsWorld(worldPtr);
         worldPtr = PhysicsEngineJNI.createPhysicsWorld();
     }
