@@ -26,9 +26,7 @@ public class PhysicsEngineJNI {
     // Native method declarations remain the same
     public static native long createPhysicsWorld();
     public static native void deletePhysicsWorld(long worldPtr);
-    public static native void addObject(long worldPtr, int id, double mass, 
-                                      double posX, double posY, double velX, double velY, 
-                                      char shape, double... dimensions);
+    public static native void addObject(long worldPtr, int id, double mass, double posX, double posY, double velX, double velY, char shape, double... dimensions);
     public static native void handleCollisions(long worldPtr);
     public static native void configureForces(long worldPtr, int choice, double... params);
     public static native void stepSimulation(long worldPtr, double deltaTime);

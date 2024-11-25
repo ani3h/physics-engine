@@ -1,6 +1,7 @@
-// File: src/java/PhysicsSimulation.java
+// File: src/JAVA/PhysicsSimulation.java
 package JAVA;
-import java.util.Scanner;  // Updated import to match new package structure
+
+import java.util.Scanner;
 
 import JAVA.jni.PhysicsEngineJNI;
 
