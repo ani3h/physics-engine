@@ -1,6 +1,16 @@
 #include "physics_native.h"
 #include <memory>
 #include <stdexcept>
+#include <algorithm>
+#include <vector>
+
+// Basic PhysicsWorld structure to hold simulation state
+struct PhysicsWorld {
+    std::vector<Object*> objects;
+    float gravity;
+    float staticFriction;
+    float kineticFriction;
+};
 
 JNIEXPORT jlong JNICALL Java_JAVA_jni_PhysicsEngineJNI_createPhysicsWorld
   (JNIEnv* env, jclass)
@@ -75,8 +85,12 @@ JNIEXPORT void JNICALL Java_JAVA_jni_PhysicsEngineJNI_handleCollisions
             Object* objA = world->objects[i];
             Object* objB = world->objects[j];
             
-            if (objA->getCollider()->checkCollision(*objB->getCollider())) {
-                objA->getCollider()->resolveCollision(*objA, *objB);
+            // Get colliders
+            Collider* colliderA = objA->getCollider();
+            Collider* colliderB = objB->getCollider();
+            
+            if (colliderA && colliderB && colliderA->checkCollision(*colliderB)) {
+                colliderA->resolveCollision(*objA, *objB);
             }
         }
     }
@@ -141,8 +155,8 @@ JNIEXPORT jobject JNICALL Java_JAVA_jni_PhysicsEngineJNI_getObjectState
         if (!objectStateClass) return nullptr;
         
         // Get constructor
-        jmethodID constructor = env->GetMethodID(objectStateClass, "<init>", 
-            "(IDDDDDD)V");  // ID, posX, posY, velX, velY, accX, accY
+        jmethodID constructor = env->GetMethodID(objectStateClass, "<init>", "(IDDDDDD)V");  // ID, posX, posY, velX, velY, accX, accY
+        if (!constructor) return nullptr;
         
         // Create and return new ObjectState object
         const Vector2D& pos = obj->getPosition();
