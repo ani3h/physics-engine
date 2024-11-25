@@ -1,5 +1,5 @@
-#include "./include/collider.h"
-#include "./include/object.h"
+#include "collider.h"
+#include "object.h"
 
 // AABB vs AABB collision detection
 bool checkAABBCollision(const AABBCollider& a, const AABBCollider& b) {

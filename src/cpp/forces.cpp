@@ -1,4 +1,4 @@
-#include "./include/forces.h"
+#include "forces.h"
 
 // Static member initialization
 bool Forces::gravityEnabled = true;

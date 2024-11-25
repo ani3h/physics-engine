@@ -1,4 +1,4 @@
-#include "./include/object.h"
+#include "object.h"
 #include <cmath>
 
 // Constructor with ID, mass, position, and velocity
