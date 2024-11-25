@@ -11,7 +11,10 @@ public:
     // Constructor with ID, mass, position, and velocity
     Object(int id, float mass, const Vector2D& position, const Vector2D& velocity);
 
-    // Getters and setters for object properties
+    // Virtual destructor for proper cleanup in derived classes
+    virtual ~Object() = default;
+
+    // Rest of the class definition remains the same...
     float getMass() const;
     void setMass(float mass);
 
@@ -23,30 +26,17 @@ public:
 
     const Vector2D& getAcceleration() const;
 
-    // Modifiable getters for object properties
     Vector2D& getPosition() { return position; }
     Vector2D& getVelocity() { return velocity; }
     Vector2D& getAcceleration() { return acceleration; }
 
-    // Apply force to the object
     void applyForce(const Vector2D& force);
-
-    // Update object's state (virtual to allow overriding in derived classes)
     virtual void update(float deltaTime);
-
-    // Reset accumulated forces
     void resetForces();
-
-    // Method to calculate area (pure virtual, implemented by derived classes)
     virtual float calculateArea() const = 0;
-
-    // New method to get the object's unique ID
     int getID() const;
-
-    // New method to update position based on velocity and deltaTime
     void updatePosition(float deltaTime);
-
-    virtual Collider* getCollider() const = 0;  // Must be implemented by derived classes
+    virtual Collider* getCollider() const = 0;
 
 protected:
     int id;              
@@ -55,10 +45,8 @@ protected:
     Vector2D velocity;
     Vector2D acceleration;
     Vector2D netForce;
+    Collider* collider;
 
-    Collider* collider;  // Pointer to the collider
-
-    // Helper function to calculate acceleration
     Vector2D calculateAcceleration() const;
 };
 
