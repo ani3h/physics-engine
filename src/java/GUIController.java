@@ -6,8 +6,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.control.Alert;
 import javafx.scene.control.TextInputDialog;
 import JAVA.jni.PhysicsEngineJNI;
-import java.util.Optional;
-import java.util.Random;
+import java.util.*;
 
 public class GUIController {
     private Canvas canvas;
@@ -17,6 +16,19 @@ public class GUIController {
     private boolean isRunning;
     private int nextId = 1;
     private Random random;
+    private Map<Integer, ShapeInfo> objectShapes;  // Store shape information for each object
+
+    private static class ShapeInfo {
+        char type;
+        double[] dimensions;
+        Color color;
+
+        ShapeInfo(char type, double[] dimensions, Color color) {
+            this.type = type;
+            this.dimensions = dimensions;
+            this.color = color;
+        }
+    }
 
     public GUIController(Canvas canvas, PhysicsSimulation simulation, long worldPtr) {
         this.canvas = canvas;
@@ -25,44 +37,68 @@ public class GUIController {
         this.worldPtr = worldPtr;
         this.isRunning = false;
         this.random = new Random();
+        this.objectShapes = new HashMap<>();
         
-        // Set up canvas click handler for object placement
         canvas.setOnMouseClicked(e -> {
             if (!isRunning) {
-                double x = e.getX();
-                double y = e.getY();
-                showAddObjectDialog(x, y);
+                showAddObjectDialog(e.getX(), e.getY());
             }
         });
 
-        // Initial canvas setup
         clearCanvas();
     }
 
     public void update(double deltaTime) {
         if (isRunning) {
-            // Step the physics simulation
             PhysicsEngineJNI.stepSimulation(worldPtr, deltaTime);
-            
-            // Handle any collisions
             PhysicsEngineJNI.handleCollisions(worldPtr);
-            
-            // Redraw the canvas
             render();
         }
     }
 
     private void render() {
         clearCanvas();
-        // TODO: Get object positions and properties from the physics engine and render them
-        // This would require additional JNI methods to get object states
         
-        // For now, we'll just draw placeholder shapes
-        // In a real implementation, you would get the actual object data from the physics engine
-        gc.setFill(Color.BLUE);
-        gc.fillRect(100, 100, 50, 50); // Example rectangle
-        gc.setFill(Color.RED);
-        gc.fillOval(200, 200, 40, 40); // Example circle
+        // Render each object based on its current state
+        for (Map.Entry<Integer, ShapeInfo> entry : objectShapes.entrySet()) {
+            int id = entry.getKey();
+            ShapeInfo shapeInfo = entry.getValue();
+            
+            // Get current state from physics engine
+            ObjectState state = PhysicsEngineJNI.getObjectState(worldPtr, id);
+            if (state == null) continue;
+            
+            gc.setFill(shapeInfo.color);
+            
+            switch (shapeInfo.type) {
+                case 'R': // Rectangle
+                    gc.fillRect(state.getPosX(), state.getPosY(),
+                              shapeInfo.dimensions[0], 
+                              shapeInfo.dimensions[0]);
+                    break;
+            }
+            
+            // Draw velocity vector (optional visualization)
+            if (isShowingVectors) {
+                gc.setStroke(Color.RED);
+                gc.setLineWidth(2);
+                double startX = state.getPosX();
+                double startY = state.getPosY();
+                double endX = startX + state.getVelX() * 10; // Scale factor for better visualization
+                double endY = startY + state.getVelY() * 10;
+                gc.strokeLine(startX, startY, endX, endY);
+                
+                // Draw arrowhead
+                double angle = Math.atan2(endY - startY, endX - startX);
+                double arrowLength = 10;
+                gc.strokeLine(endX, endY, 
+                            endX - arrowLength * Math.cos(angle - Math.PI/6),
+                            endY - arrowLength * Math.sin(angle - Math.PI/6));
+                gc.strokeLine(endX, endY,
+                            endX - arrowLength * Math.cos(angle + Math.PI/6),
+                            endY - arrowLength * Math.sin(angle + Math.PI/6));
+            }
+        }
     }
 
     private void clearCanvas() {
@@ -76,17 +112,18 @@ public class GUIController {
         double defaultMass = 1.0;
         double[] dimensions;
         char shapeChar;
+        Color color = Color.color(random.nextDouble(), random.nextDouble(), random.nextDouble()); // Random color
 
-        switch (shapeType) {
-            case "Rectangle":
+        switch (shapeType.toUpperCase()) {
+            case "RECTANGLE":
                 dimensions = new double[]{50.0, 30.0}; // width, height
                 shapeChar = 'R';
                 break;
-            case "Circle":
+            case "CIRCLE":
                 dimensions = new double[]{20.0}; // radius
                 shapeChar = 'C';
                 break;
-            case "Square":
+            case "SQUARE":
                 dimensions = new double[]{40.0}; // side length
                 shapeChar = 'S';
                 break;
@@ -96,15 +133,27 @@ public class GUIController {
         }
 
         // Generate random position within canvas bounds
-        double posX = random.nextDouble() * (canvas.getWidth() - 50);
-        double posY = random.nextDouble() * (canvas.getHeight() - 50);
+        double posX = random.nextDouble() * (canvas.getWidth() - dimensions[0]);
+        double posY = random.nextDouble() * (canvas.getHeight() - 
+                     (shapeChar == 'C' ? dimensions[0] * 2 : dimensions[shapeChar == 'R' ? 1 : 0]));
         
-        // Initial velocity (can be modified through UI if needed)
-        double velX = 0;
-        double velY = 0;
+        addObjectAtPosition(posX, posY, defaultMass, shapeChar, dimensions, color);
+    }
 
+    private void addObjectAtPosition(double x, double y, double mass, char shapeChar, 
+                                   double[] dimensions, Color color) {
         try {
-            PhysicsEngineJNI.addObject(worldPtr, nextId++, defaultMass, posX, posY, velX, velY, shapeChar, dimensions);
+            // Initial velocity
+            double velX = 0;
+            double velY = 0;
+
+            // Add object to physics engine
+            PhysicsEngineJNI.addObject(worldPtr, nextId, mass, x, y, velX, velY, shapeChar, dimensions);
+            
+            // Store shape information for rendering
+            objectShapes.put(nextId, new ShapeInfo(shapeChar, dimensions, color));
+            
+            nextId++;
             render();
         } catch (Exception e) {
             showError("Failed to add object: " + e.getMessage());
@@ -118,18 +167,45 @@ public class GUIController {
         dialog.setContentText("Mass:");
 
         Optional<String> result = dialog.showAndWait();
-        result.ifPresent(mass -> {
+        result.ifPresent(massStr -> {
             try {
-                double objectMass = Double.parseDouble(mass);
-                // Add object at clicked position
-                PhysicsEngineJNI.addObject(worldPtr, nextId++, objectMass, 
-                                         x, y, 0, 0, 
-                                         'R', new double[]{50.0, 30.0});
-                render();
+                double mass = Double.parseDouble(massStr);
+                
+                // Show shape selection dialog
+                List<String> choices = Arrays.asList("Rectangle", "Circle", "Square");
+                ChoiceDialog<String> shapeDialog = new ChoiceDialog<>("Rectangle", choices);
+                shapeDialog.setTitle("Select Shape");
+                shapeDialog.setHeaderText("Choose object shape:");
+                shapeDialog.setContentText("Shape:");
+
+                Optional<String> shapeResult = shapeDialog.showAndWait();
+                shapeResult.ifPresent(shape -> {
+                    char shapeChar;
+                    double[] dimensions;
+                    Color color = Color.color(random.nextDouble(), random.nextDouble(), random.nextDouble());
+
+                    switch (shape) {
+                        case "Rectangle":
+                            dimensions = new double[]{50.0, 30.0};
+                            shapeChar = 'R';
+                            break;
+                        case "Circle":
+                            dimensions = new double[]{20.0};
+                            shapeChar = 'C';
+                            break;
+                        case "Square":
+                            dimensions = new double[]{40.0};
+                            shapeChar = 'S';
+                            break;
+                        default:
+                            showError("Invalid shape selection");
+                            return;
+                    }
+
+                    addObjectAtPosition(x, y, mass, shapeChar, dimensions, color);
+                });
             } catch (NumberFormatException e) {
                 showError("Invalid mass value");
-            } catch (Exception e) {
-                showError("Failed to add object: " + e.getMessage());
             }
         });
     }
@@ -142,6 +218,13 @@ public class GUIController {
         alert.showAndWait();
     }
 
+    private boolean isShowingVectors = false;
+
+    public void toggleVectorDisplay() {
+        isShowingVectors = !isShowingVectors;
+        render();
+    }
+
     public void startSimulation() {
         isRunning = true;
     }
@@ -152,9 +235,12 @@ public class GUIController {
 
     public void resetSimulation() {
         isRunning = false;
-        // TODO: Implement reset logic in JNI
         clearCanvas();
         nextId = 1;
+        objectShapes.clear();
+        // Create new physics world
+        PhysicsEngineJNI.deletePhysicsWorld(worldPtr);
+        worldPtr = PhysicsEngineJNI.createPhysicsWorld();
     }
 
     public boolean isRunning() {
@@ -162,7 +248,7 @@ public class GUIController {
     }
 
     public void cleanup() {
-        // Add any necessary cleanup code here
         isRunning = false;
+        objectShapes.clear();
     }
 }
