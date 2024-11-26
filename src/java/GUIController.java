@@ -6,6 +6,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.control.Alert;
 import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.ChoiceDialog;
+import javafx.scene.text.Font;
 import JAVA.jni.PhysicsEngineJNI;
 import java.util.*;
 
@@ -17,10 +18,13 @@ public class GUIController {
     private boolean isRunning;
     private int nextId = 1;
     private Random random;
-    private Map<Integer, ShapeInfo> objectShapes;  // Store shape information for each object
-    private boolean isShowingVectors = false;
-    private static final double GROUND_RESTITUTION = 0.5; // Bounce factor
-    private static final float GROUND_FRICTION = 0.3f;    // Ground friction coefficient
+    private Map<Integer, ShapeInfo> objectShapes;
+    private boolean isShowingAcc = false;
+    private static final double GROUND_RESTITUTION = 0.6;
+    private static final float GROUND_FRICTION = 0.2f;
+    private static final double VELOCITY_THRESHOLD = 0.1;
+    private static final double VECTOR_SCALE = 20.0; // Scale factor for velocity vectors
+    private static final int VECTOR_TEXT_OFFSET = 15; // Offset for velocity text
 
     private static class ShapeInfo {
         char type;
@@ -61,129 +65,210 @@ public class GUIController {
 
     public void update(double deltaTime) {
         if (isRunning) {
-            PhysicsEngineJNI.stepSimulation(worldPtr, deltaTime);
-            PhysicsEngineJNI.handleCollisions(worldPtr);
-            handleGroundCollisions();  // Added ground collision handling
-            render();
+            synchronized(this) {
+                PhysicsEngineJNI.stepSimulation(worldPtr, deltaTime);
+                PhysicsEngineJNI.handleCollisions(worldPtr);
+                handleGroundCollisions();
+                render();
+            }
         }
     }
 
     private void handleGroundCollisions() {
+        double groundY = canvas.getHeight() - 5; // Ground level
+        boolean anyObjectActive = false;
+        
+        // First pass: Check all objects and handle collisions
         for (Map.Entry<Integer, ShapeInfo> entry : objectShapes.entrySet()) {
             int id = entry.getKey();
             ShapeInfo shapeInfo = entry.getValue();
             
             ObjectState state = PhysicsEngineJNI.getObjectState(worldPtr, id);
             if (state == null) continue;
-
-            double objectBottom = state.getPosY();
-            double groundY = canvas.getHeight() - 5; // Slight offset for visual ground line
-
-            // Calculate bottom position based on shape type
+            
+            // Calculate object boundaries
+            double objectBottom;
             switch (shapeInfo.type) {
-                case 'R': // Rectangle
-                    objectBottom += shapeInfo.dimensions[1];
-                    break;
-                case 'C': // Circle
-                    objectBottom += shapeInfo.dimensions[0] * 2;
-                    break;
-                case 'S': // Square
-                    objectBottom += shapeInfo.dimensions[0];
-                    break;
+                case 'R': objectBottom = state.getPosY() + shapeInfo.dimensions[1]; break;
+                case 'C': objectBottom = state.getPosY() + shapeInfo.dimensions[0] * 2; break;
+                case 'S': objectBottom = state.getPosY() + shapeInfo.dimensions[0]; break;
+                default: continue;
             }
-
-            // Check for ground collision
+            
+            // Check if object is moving
+            boolean hasSignificantMotion = Math.abs(state.getVelX()) > VELOCITY_THRESHOLD || 
+                                         Math.abs(state.getVelY()) > VELOCITY_THRESHOLD;
+            
+            // Check if object is above ground
+            boolean isAboveGround = objectBottom < groundY;
+            
+            // If object is either moving or not yet at rest position, simulation should continue
+            if (hasSignificantMotion || isAboveGround) {
+                anyObjectActive = true;
+            }
+            
+            // Handle ground collision if needed
             if (objectBottom > groundY) {
-                double newY = groundY;
-                
-                // Adjust position based on shape type
+                // Calculate correct Y position
+                double correctedY;
                 switch (shapeInfo.type) {
-                    case 'R': // Rectangle
-                        newY -= shapeInfo.dimensions[1];
-                        break;
-                    case 'C': // Circle
-                        newY -= shapeInfo.dimensions[0] * 2;
-                        break;
-                    case 'S': // Square
-                        newY -= shapeInfo.dimensions[0];
-                        break;
+                    case 'R': correctedY = groundY - shapeInfo.dimensions[1]; break;
+                    case 'C': correctedY = groundY - shapeInfo.dimensions[0] * 2; break;
+                    case 'S': correctedY = groundY - shapeInfo.dimensions[0]; break;
+                    default: continue;
                 }
-
+                
                 // Apply collision response
                 double velY = state.getVelY();
-                if (velY > 0) { // Only bounce if moving downward
-                    // Apply restitution (bounce)
-                    double newVelY = -velY * GROUND_RESTITUTION;
+                double velX = state.getVelX();
+                
+                // Only apply bounce if moving downward
+                if (velY > 0) {
+                    velY = -velY * GROUND_RESTITUTION;
+                    velX *= (1.0 - GROUND_FRICTION);
                     
-                    // Apply friction to horizontal velocity
-                    double velX = state.getVelX();
-                    double newVelX = velX * (1 - GROUND_FRICTION);
-                    
-                    // Update object state with new position and velocity
-                    PhysicsEngineJNI.updateObjectState(worldPtr, id, 
-                                                     state.getPosX(), newY,
-                                                     newVelX, newVelY);
+                    // If bounce creates significant motion, keep simulation active
+                    if (Math.abs(velY) > VELOCITY_THRESHOLD) {
+                        anyObjectActive = true;
+                    }
                 }
+                
+                // Update object state
+                PhysicsEngineJNI.updateObjectState(worldPtr, id, 
+                                                 state.getPosX(), 
+                                                 correctedY,
+                                                 velX, 
+                                                 velY);
             }
         }
+        
+        // Second pass: Update acceleration for all objects
+        for (Map.Entry<Integer, ShapeInfo> entry : objectShapes.entrySet()) {
+            int id = entry.getKey();
+            ObjectState state = PhysicsEngineJNI.getObjectState(worldPtr, id);
+            if (state == null) continue;
+            
+            // If any object has non-zero acceleration, keep simulation active
+            if (Math.abs(state.getAccX()) > VELOCITY_THRESHOLD || 
+                Math.abs(state.getAccY()) > VELOCITY_THRESHOLD) {
+                anyObjectActive = true;
+            }
+        }
+        
+        // Only continue simulation if there are active objects
+        if (isRunning && !anyObjectActive) {
+            // Add a small delay before stopping to ensure all objects are truly at rest
+            try {
+                Thread.sleep(100); // Small delay to ensure stability
+                
+                // Double check if everything is really at rest
+                boolean finalCheck = false;
+                for (Map.Entry<Integer, ShapeInfo> entry : objectShapes.entrySet()) {
+                    ObjectState state = PhysicsEngineJNI.getObjectState(worldPtr, entry.getKey());
+                    if (state == null) continue;
+                    
+                    if (Math.abs(state.getVelX()) > VELOCITY_THRESHOLD/2 || 
+                        Math.abs(state.getVelY()) > VELOCITY_THRESHOLD/2 ||
+                        Math.abs(state.getAccX()) > VELOCITY_THRESHOLD/2 || 
+                        Math.abs(state.getAccY()) > VELOCITY_THRESHOLD/2) {
+                        finalCheck = true;
+                        break;
+                    }
+                }
+                
+                isRunning = finalCheck;
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        } else {
+            isRunning = true;
+        }
+    }
+    
+    private void drawAccelerationVector(double x, double y, double accX, double accY) {
+        // Calculate acceleration magnitude
+        double accelerationMagnitude = Math.sqrt(accX * accX + accY * accY);
+        
+        // Use a different scale for acceleration since it's typically smaller than velocity
+        // and might need more amplification to be visible
+        final double ACCELERATION_SCALE = 100.0;  // Increased scale factor for acceleration
+        
+        // Draw acceleration vector in a different color to distinguish from velocity
+        gc.setStroke(Color.BLACK);  // Changed to green to differentiate from velocity vectors
+        gc.setLineWidth(2);
+        
+        // Scale the vector for better visualization
+        double scaledEndX = x + accX * ACCELERATION_SCALE;
+        double scaledEndY = y + accY * ACCELERATION_SCALE;
+        
+        // Draw the main vector line
+        gc.strokeLine(x, y, scaledEndX, scaledEndY);
+        
+        // Draw arrowhead
+        double angle = Math.atan2(accY, accX);
+        double arrowLength = 10;
+        
+        gc.strokeLine(scaledEndX, scaledEndY,
+                     scaledEndX - arrowLength * Math.cos(angle - Math.PI/6),
+                     scaledEndY - arrowLength * Math.sin(angle - Math.PI/6));
+        gc.strokeLine(scaledEndX, scaledEndY,
+                     scaledEndX - arrowLength * Math.cos(angle + Math.PI/6),
+                     scaledEndY - arrowLength * Math.sin(angle + Math.PI/6));
+        
+        // Display acceleration magnitude
+        gc.setFill(Color.BLACK);  // Match the vector color
+        gc.setFont(new Font("Arial", 12));
+        String accelerationText = String.format("%.2f m/s²", accelerationMagnitude);
+        gc.fillText(accelerationText, 
+                   x + VECTOR_TEXT_OFFSET, 
+                   y - VECTOR_TEXT_OFFSET);
     }
 
     private void render() {
         clearCanvas();
         
-        // Draw the ground line
+        // Draw ground line
         gc.setStroke(Color.BLACK);
         gc.setLineWidth(2);
         gc.strokeLine(0, canvas.getHeight() - 5, canvas.getWidth(), canvas.getHeight() - 5);
         
-        // Render each object based on its current state
         for (Map.Entry<Integer, ShapeInfo> entry : objectShapes.entrySet()) {
             int id = entry.getKey();
             ShapeInfo shapeInfo = entry.getValue();
             
-            // Get current state from physics engine
             ObjectState state = PhysicsEngineJNI.getObjectState(worldPtr, id);
             if (state == null) continue;
             
+            double posX = state.getPosX();
+            double posY = state.getPosY();
             gc.setFill(shapeInfo.color);
             
+            // Calculate center point for vector drawing
+            double centerX = posX;
+            double centerY = posY;
+            
             switch (shapeInfo.type) {
-                case 'R': // Rectangle
-                    gc.fillRect(state.getPosX(), state.getPosY(),
-                              shapeInfo.dimensions[0], 
-                              shapeInfo.dimensions[1]);
+                case 'R':
+                    gc.fillRect(posX, posY, shapeInfo.dimensions[0], shapeInfo.dimensions[1]);
+                    centerX += shapeInfo.dimensions[0] / 2;
+                    centerY += shapeInfo.dimensions[1] / 2;
                     break;
-                case 'C': // Circle
-                    gc.fillOval(state.getPosX(), state.getPosY(),
-                              shapeInfo.dimensions[0] * 2, 
-                              shapeInfo.dimensions[0] * 2);
+                case 'C':
+                    double diameter = shapeInfo.dimensions[0] * 2;
+                    gc.fillOval(posX, posY, diameter, diameter);
+                    centerX += shapeInfo.dimensions[0];
+                    centerY += shapeInfo.dimensions[0];
                     break;
-                case 'S': // Square
-                    gc.fillRect(state.getPosX(), state.getPosY(),
-                              shapeInfo.dimensions[0], 
-                              shapeInfo.dimensions[0]);
+                case 'S':
+                    gc.fillRect(posX, posY, shapeInfo.dimensions[0], shapeInfo.dimensions[0]);
+                    centerX += shapeInfo.dimensions[0] / 2;
+                    centerY += shapeInfo.dimensions[0] / 2;
                     break;
             }
             
-            // Draw velocity vector (optional visualization)
-            if (isShowingVectors) {
-                gc.setStroke(Color.RED);
-                gc.setLineWidth(2);
-                double startX = state.getPosX();
-                double startY = state.getPosY();
-                double endX = startX + state.getVelX() * 10;
-                double endY = startY + state.getVelY() * 10;
-                gc.strokeLine(startX, startY, endX, endY);
-                
-                // Draw arrowhead
-                double angle = Math.atan2(endY - startY, endX - startX);
-                double arrowLength = 10;
-                gc.strokeLine(endX, endY, 
-                            endX - arrowLength * Math.cos(angle - Math.PI/6),
-                            endY - arrowLength * Math.sin(angle - Math.PI/6));
-                gc.strokeLine(endX, endY,
-                            endX - arrowLength * Math.cos(angle + Math.PI/6),
-                            endY - arrowLength * Math.sin(angle + Math.PI/6));
+            // Draw velocity vector if enabled
+            if (isShowingAcc) {
+                drawAccelerationVector(centerX, centerY, state.getAccX(), state.getAccY());
             }
         }
     }
@@ -196,15 +281,15 @@ public class GUIController {
 
         switch (shapeType.toUpperCase()) {
             case "RECTANGLE":
-                dimensions = new double[]{50.0, 30.0}; // width, height
+                dimensions = new double[]{50.0, 30.0};
                 shapeChar = 'R';
                 break;
             case "CIRCLE":
-                dimensions = new double[]{20.0}; // radius
+                dimensions = new double[]{20.0};
                 shapeChar = 'C';
                 break;
             case "SQUARE":
-                dimensions = new double[]{40.0}; // side length
+                dimensions = new double[]{40.0};
                 shapeChar = 'S';
                 break;
             default:
@@ -213,7 +298,7 @@ public class GUIController {
         }
 
         double posX = random.nextDouble() * (canvas.getWidth() - dimensions[0]);
-        double posY = random.nextDouble() * (canvas.getHeight() * 0.5); // Only spawn in top half
+        double posY = random.nextDouble() * (canvas.getHeight() * 0.5);
         
         addObjectAtPosition(posX, posY, defaultMass, shapeChar, dimensions, color);
     }
@@ -221,14 +306,10 @@ public class GUIController {
     private void addObjectAtPosition(double x, double y, double mass, char shapeChar, 
                                    double[] dimensions, Color color) {
         try {
-            // Initial velocity
-            double velX = 0;
+            double velX = random.nextDouble() * 2 - 1;
             double velY = 0;
 
-            // Add object to physics engine
             PhysicsEngineJNI.addObject(worldPtr, nextId, mass, x, y, velX, velY, shapeChar, dimensions);
-            
-            // Store shape information for rendering
             objectShapes.put(nextId, new ShapeInfo(shapeChar, dimensions, color));
             
             nextId++;
@@ -249,7 +330,6 @@ public class GUIController {
             try {
                 double mass = Double.parseDouble(massStr);
                 
-                // Show shape selection dialog
                 List<String> choices = Arrays.asList("Rectangle", "Circle", "Square");
                 ChoiceDialog<String> shapeDialog = new ChoiceDialog<>("Rectangle", choices);
                 shapeDialog.setTitle("Select Shape");
@@ -297,7 +377,7 @@ public class GUIController {
     }
 
     public void toggleVectorDisplay() {
-        isShowingVectors = !isShowingVectors;
+        isShowingAcc = !isShowingAcc;
         render();
     }
 
