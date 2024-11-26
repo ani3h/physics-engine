@@ -4,22 +4,51 @@
 #include <algorithm>
 #include <vector>
 
-// Basic PhysicsWorld structure to hold simulation state
-struct PhysicsWorld {
-    std::vector<Object*> objects;
-    float gravity;
-    float staticFriction;
-    float kineticFriction;
-};
+// Helper function implementations
+bool detectCollision(Object* objA, Object* objB) {
+    Collider* colliderA = objA->getCollider();
+    Collider* colliderB = objB->getCollider();
+    
+    return (colliderA && colliderB && colliderA->checkCollision(*colliderB));
+}
 
+void resolveCollision(Object* objA, Object* objB) {
+    Collider* colliderA = objA->getCollider();
+    if (colliderA) {
+        colliderA->resolveCollision(*objA, *objB);
+    }
+}
+
+void applyForces(Object* obj, const PhysicsWorld* world) {
+    // Apply gravity
+    Forces::applyGravity(*obj, world->gravity);
+    
+    // Apply friction if near ground
+    if (isNearGround(obj, world)) {
+        Vector2D surfaceNormal(0, 1);
+        double velocityMagnitude = obj->getVelocity().length();
+        
+        if (velocityMagnitude < world->VELOCITY_THRESHOLD) {
+            Forces::applyStaticFriction(*obj, world->staticFriction, surfaceNormal);
+        } else {
+            Forces::applyKineticFriction(*obj, world->kineticFriction, surfaceNormal);
+        }
+    }
+}
+
+void updateObjectPhysics(Object* obj, double deltaTime) {
+    obj->update(deltaTime);
+}
+
+bool isNearGround(const Object* obj, const PhysicsWorld* world) {
+    return std::abs(obj->getPosition().y - world->groundLevel) < world->GROUND_THRESHOLD;
+}
+
+// JNI implementations
 JNIEXPORT jlong JNICALL Java_JAVA_jni_PhysicsEngineJNI_createPhysicsWorld
   (JNIEnv* env, jclass)
 {
-    auto* world = new PhysicsWorld();
-    world->gravity = 9.81f;
-    world->staticFriction = 0.5f;
-    world->kineticFriction = 0.3f;
-    return reinterpret_cast<jlong>(world);
+    return reinterpret_cast<jlong>(new PhysicsWorld());
 }
 
 JNIEXPORT void JNICALL Java_JAVA_jni_PhysicsEngineJNI_deletePhysicsWorld
@@ -47,17 +76,17 @@ JNIEXPORT void JNICALL Java_JAVA_jni_PhysicsEngineJNI_addObject
 
     try {
         switch (shape) {
-            case 'R': // Rectangle
+            case 'R':
                 if (dimsLength >= 2) {
                     obj = new Rectangle(id, mass, position, velocity, dims[0], dims[1]);
                 }
                 break;
-            case 'C': // Circle
+            case 'C':
                 if (dimsLength >= 1) {
                     obj = new Circle(id, mass, position, velocity, dims[0]);
                 }
                 break;
-            case 'S': // Square
+            case 'S':
                 if (dimsLength >= 1) {
                     obj = new Square(id, mass, position, velocity, dims[0]);
                 }
@@ -78,21 +107,20 @@ JNIEXPORT void JNICALL Java_JAVA_jni_PhysicsEngineJNI_handleCollisions
   (JNIEnv* env, jclass, jlong worldPtr)
 {
     auto* world = reinterpret_cast<PhysicsWorld*>(worldPtr);
+    std::vector<std::pair<Object*, Object*>> collidingPairs;
     
-    // Check collisions between all pairs of objects
+    // First pass: Detect collisions
     for (size_t i = 0; i < world->objects.size(); i++) {
         for (size_t j = i + 1; j < world->objects.size(); j++) {
-            Object* objA = world->objects[i];
-            Object* objB = world->objects[j];
-            
-            // Get colliders
-            Collider* colliderA = objA->getCollider();
-            Collider* colliderB = objB->getCollider();
-            
-            if (colliderA && colliderB && colliderA->checkCollision(*colliderB)) {
-                colliderA->resolveCollision(*objA, *objB);
+            if (detectCollision(world->objects[i], world->objects[j])) {
+                collidingPairs.push_back({world->objects[i], world->objects[j]});
             }
         }
+    }
+    
+    // Second pass: Resolve collisions
+    for (const auto& pair : collidingPairs) {
+        resolveCollision(pair.first, pair.second);
     }
 }
 
@@ -104,13 +132,13 @@ JNIEXPORT void JNICALL Java_JAVA_jni_PhysicsEngineJNI_configureForces
     jsize length = env->GetArrayLength(params);
 
     switch (choice) {
-        case 1: // Friction coefficients
+        case 1:
             if (length >= 2) {
                 world->staticFriction = values[0];
                 world->kineticFriction = values[1];
             }
             break;
-        case 2: // Gravity
+        case 2:
             if (length >= 1) {
                 world->gravity = values[0];
             }
@@ -126,15 +154,9 @@ JNIEXPORT void JNICALL Java_JAVA_jni_PhysicsEngineJNI_stepSimulation
     auto* world = reinterpret_cast<PhysicsWorld*>(worldPtr);
     
     for (auto* obj : world->objects) {
-        // Apply forces
-        Forces::applyGravity(*obj, world->gravity);
-        Vector2D surfaceNormal(0, 1);  // Assuming ground is below
-        Forces::applyStaticFriction(*obj, world->staticFriction, surfaceNormal);
-        Forces::applyKineticFriction(*obj, world->kineticFriction, surfaceNormal);
-        
-        // Update object state
-        obj->update(deltaTime);
         obj->resetForces();
+        applyForces(obj, world);
+        updateObjectPhysics(obj, deltaTime);
     }
 }
 
@@ -143,22 +165,18 @@ JNIEXPORT jobject JNICALL Java_JAVA_jni_PhysicsEngineJNI_getObjectState
 {
     auto* world = reinterpret_cast<PhysicsWorld*>(worldPtr);
     
-    // Find object with given ID
     auto it = std::find_if(world->objects.begin(), world->objects.end(),
         [objectId](const Object* obj) { return obj->getID() == objectId; });
     
     if (it != world->objects.end()) {
         Object* obj = *it;
         
-        // Find ObjectState class
         jclass objectStateClass = env->FindClass("JAVA/ObjectState");
         if (!objectStateClass) return nullptr;
         
-        // Get constructor
-        jmethodID constructor = env->GetMethodID(objectStateClass, "<init>", "(IDDDDDD)V");  // ID, posX, posY, velX, velY, accX, accY
+        jmethodID constructor = env->GetMethodID(objectStateClass, "<init>", "(IDDDDDD)V");
         if (!constructor) return nullptr;
         
-        // Create and return new ObjectState object
         const Vector2D& pos = obj->getPosition();
         const Vector2D& vel = obj->getVelocity();
         const Vector2D& acc = obj->getAcceleration();
@@ -171,4 +189,20 @@ JNIEXPORT jobject JNICALL Java_JAVA_jni_PhysicsEngineJNI_getObjectState
     }
     
     return nullptr;
+}
+
+JNIEXPORT void JNICALL Java_JAVA_jni_PhysicsEngineJNI_updateObjectState
+  (JNIEnv* env, jclass, jlong worldPtr, jint objectId, jdouble posX, jdouble posY, 
+   jdouble velX, jdouble velY)
+{
+    auto* world = reinterpret_cast<PhysicsWorld*>(worldPtr);
+    
+    auto it = std::find_if(world->objects.begin(), world->objects.end(),
+        [objectId](const Object* obj) { return obj->getID() == objectId; });
+    
+    if (it != world->objects.end()) {
+        Object* obj = *it;
+        obj->setPosition(Vector2D(posX, posY));
+        obj->setVelocity(Vector2D(velX, velY));
+    }
 }

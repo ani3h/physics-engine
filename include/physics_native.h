@@ -60,6 +60,41 @@ JNIEXPORT void JNICALL Java_JAVA_jni_PhysicsEngineJNI_stepSimulation
 JNIEXPORT jobject JNICALL Java_JAVA_jni_PhysicsEngineJNI_getObjectState
   (JNIEnv *, jclass, jlong, jint);
 
+/*
+ * Class:     JAVA_jni_PhysicsEngineJNI
+ * Method:    updateObjectState
+ */
+JNIEXPORT void JNICALL Java_JAVA_jni_PhysicsEngineJNI_updateObjectState
+  (JNIEnv *, jclass, jlong, jint, jdouble, jdouble, jdouble, jdouble);
+
+/*
+ * Struct definition for PhysicsWorld
+ */
+struct PhysicsWorld {
+    std::vector<Object*> objects;
+    float gravity;
+    float staticFriction;
+    float kineticFriction;
+    double groundLevel;
+    const double GROUND_THRESHOLD = 0.1;
+    const double VELOCITY_THRESHOLD = 0.01;
+
+    PhysicsWorld() : 
+        gravity(9.81f),
+        staticFriction(0.5f),
+        kineticFriction(0.3f),
+        groundLevel(600.0) {} // Assuming 600 is your canvas height - 5
+};
+
+/*
+ * Helper function declarations
+ */
+bool detectCollision(Object* objA, Object* objB);
+void resolveCollision(Object* objA, Object* objB);
+void applyForces(Object* obj, const PhysicsWorld* world);
+void updateObjectPhysics(Object* obj, double deltaTime);
+bool isNearGround(const Object* obj, const PhysicsWorld* world);
+
 #ifdef __cplusplus
 }
 #endif
