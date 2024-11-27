@@ -59,17 +59,41 @@ public class SimulationApp extends Application {
         // Add components to root
         root.getChildren().addAll(canvas, controls);
 
+        // Create scene
+        Scene scene = new Scene(root);
+
         // Create the controller
         controller = new GUIController(canvas, simulation, worldPtr);
 
-        // Set up button actions
-        addObjectBtn.setOnAction(e -> controller.handleAddObject(objectType.getValue()));
-        startBtn.setOnAction(e -> controller.startSimulation());
-        pauseBtn.setOnAction(e -> controller.pauseSimulation());
-        resetBtn.setOnAction(e -> controller.resetSimulation());
-        showVectorsBtn.setOnAction(e -> controller.toggleVectorDisplay());
-        
-        configureBtn.setOnAction(e -> showConfigurationDialog());
+        // Set up key handling for the scene
+        controller.setupKeyHandling(scene);  // Add this line to enable key handling
+
+        // Set up button actions with focus handling
+        addObjectBtn.setOnAction(e -> {
+            controller.handleAddObject(objectType.getValue());
+            scene.getRoot().requestFocus();
+        });
+        startBtn.setOnAction(e -> {
+            controller.startSimulation();
+            scene.getRoot().requestFocus();
+        });
+        pauseBtn.setOnAction(e -> {
+            controller.pauseSimulation();
+            scene.getRoot().requestFocus();
+        });
+        resetBtn.setOnAction(e -> {
+            controller.resetSimulation();
+            scene.getRoot().requestFocus();
+        });
+        showVectorsBtn.setOnAction(e -> {
+            controller.toggleVectorDisplay();
+            scene.getRoot().requestFocus();
+        });
+
+        configureBtn.setOnAction(e -> {
+            showConfigurationDialog();
+            scene.getRoot().requestFocus();
+        });
 
         // Create game loop
         gameLoop = new AnimationTimer() {
@@ -94,10 +118,12 @@ public class SimulationApp extends Application {
         gameLoop.start();
 
         // Create and show the scene
-        Scene scene = new Scene(root);
         primaryStage.setTitle("Physics Simulation");
         primaryStage.setScene(scene);
         primaryStage.show();
+
+        // Request focus for the scene to enable key events
+        scene.getRoot().requestFocus();  // Add this line to ensure key events are captured
     }
 
     private void showConfigurationDialog() {

@@ -54,10 +54,7 @@ void AABBCollider::resolveCollision(Object& objectA, Object& objectB) const {
     float massA = objectA.getMass();
     float massB = objectB.getMass();
 
-    // Calculate collision normal (from A to B)
-    Vector2D normal;
-    
-    // Find the overlap direction
+    // Calculate overlap in both axes
     float overlapX = (posA.x + width) - posB.x;
     if (std::abs(overlapX) > std::abs(posA.x - (posB.x + width))) {
         overlapX = posA.x - (posB.x + width);
@@ -68,7 +65,8 @@ void AABBCollider::resolveCollision(Object& objectA, Object& objectB) const {
         overlapY = posA.y - (posB.y + height);
     }
 
-    // Use the smallest overlap to determine collision normal
+    // Determine collision normal based on smallest overlap
+    Vector2D normal;
     if (std::abs(overlapX) < std::abs(overlapY)) {
         normal = Vector2D(overlapX > 0 ? 1.0f : -1.0f, 0.0f);
     } else {
@@ -79,11 +77,11 @@ void AABBCollider::resolveCollision(Object& objectA, Object& objectB) const {
     Vector2D relativeVel = velB - velA;
     float velocityAlongNormal = relativeVel.dot(normal);
 
-    // Don't resolve if objects are moving apart
+    // Early out if objects are moving apart
     if (velocityAlongNormal > 0) return;
 
-    // Coefficient of restitution (elasticity)
-    float e = 0.8f;
+    // Calculate restitution (elasticity)
+    float e = 0.4f; // Reduced from 0.8f for more realistic block stacking
 
     // Calculate impulse scalar
     float j = -(1.0f + e) * velocityAlongNormal;
@@ -94,8 +92,17 @@ void AABBCollider::resolveCollision(Object& objectA, Object& objectB) const {
     velA -= impulse / massA;
     velB += impulse / massB;
 
+    // Apply positional correction to prevent sinking
+    const float percent = 0.2f; // Penetration percentage to correct
+    const float slop = 0.01f;   // Penetration allowance
+    Vector2D correction = normal * (std::max(std::abs(std::abs(overlapX) < std::abs(overlapY) ? 
+                                           overlapX : overlapY) - slop, 0.0f) * percent);
+    
+    posA -= correction * (1.0f / massA / (1.0f / massA + 1.0f / massB));
+    posB += correction * (1.0f / massB / (1.0f / massA + 1.0f / massB));
+
     // Apply friction
-    float friction = 0.2f;
+    float friction = 0.3f; // Increased from 0.2f for better stability
     Vector2D tangent = relativeVel - (normal * velocityAlongNormal);
     if (tangent.lengthSquared() > 0.0001f) {
         tangent = tangent.normalized();
@@ -112,6 +119,13 @@ void AABBCollider::resolveCollision(Object& objectA, Object& objectB) const {
 
         velA -= frictionImpulse / massA;
         velB += frictionImpulse / massB;
+    }
+
+    // Additional stability check for stacked blocks
+    if (std::abs(normal.y) > 0.9f) { // Near-vertical collision
+        // Reduce horizontal velocity for better stacking stability
+        if (std::abs(velA.x) < 0.1f) velA.x = 0;
+        if (std::abs(velB.x) < 0.1f) velB.x = 0;
     }
 }
 

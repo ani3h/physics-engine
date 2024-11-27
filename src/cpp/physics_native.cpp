@@ -107,20 +107,50 @@ JNIEXPORT void JNICALL Java_JAVA_jni_PhysicsEngineJNI_handleCollisions
   (JNIEnv* env, jclass, jlong worldPtr)
 {
     auto* world = reinterpret_cast<PhysicsWorld*>(worldPtr);
-    std::vector<std::pair<Object*, Object*>> collidingPairs;
+    const int maxIterations = 4; // Maximum iterations for collision resolution
     
-    // First pass: Detect collisions
-    for (size_t i = 0; i < world->objects.size(); i++) {
-        for (size_t j = i + 1; j < world->objects.size(); j++) {
-            if (detectCollision(world->objects[i], world->objects[j])) {
-                collidingPairs.push_back({world->objects[i], world->objects[j]});
+    for (int iteration = 0; iteration < maxIterations; iteration++) {
+        std::vector<std::pair<Object*, Object*>> collidingPairs;
+        
+        // First pass: Detect all collisions
+        for (size_t i = 0; i < world->objects.size(); i++) {
+            for (size_t j = i + 1; j < world->objects.size(); j++) {
+                if (detectCollision(world->objects[i], world->objects[j])) {
+                    collidingPairs.push_back({world->objects[i], world->objects[j]});
+                }
             }
         }
-    }
-    
-    // Second pass: Resolve collisions
-    for (const auto& pair : collidingPairs) {
-        resolveCollision(pair.first, pair.second);
+        
+        if (collidingPairs.empty()) {
+            break; // No more collisions to resolve
+        }
+        
+        // Second pass: Resolve collisions
+        for (const auto& pair : collidingPairs) {
+            Collider* colliderA = pair.first->getCollider();
+            Collider* colliderB = pair.second->getCollider();
+            
+            if (colliderA && colliderB) {
+                // Handle all collider type combinations
+                if (auto* aabbA = dynamic_cast<AABBCollider*>(colliderA)) {
+                    if (auto* aabbB = dynamic_cast<AABBCollider*>(colliderB)) {
+                        // AABB vs AABB collision
+                        aabbA->resolveCollision(*pair.first, *pair.second);
+                    } else if (auto* circleB = dynamic_cast<CircleCollider*>(colliderB)) {
+                        // AABB vs Circle collision
+                        aabbA->resolveCollision(*pair.first, *pair.second);
+                    }
+                } else if (auto* circleA = dynamic_cast<CircleCollider*>(colliderA)) {
+                    if (auto* circleB = dynamic_cast<CircleCollider*>(colliderB)) {
+                        // Circle vs Circle collision
+                        circleA->resolveCollision(*pair.first, *pair.second);
+                    } else if (auto* aabbB = dynamic_cast<AABBCollider*>(colliderB)) {
+                        // Circle vs AABB collision
+                        circleA->resolveCollision(*pair.first, *pair.second);
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -204,5 +234,18 @@ JNIEXPORT void JNICALL Java_JAVA_jni_PhysicsEngineJNI_updateObjectState
         Object* obj = *it;
         obj->setPosition(Vector2D(posX, posY));
         obj->setVelocity(Vector2D(velX, velY));
+
+        // Update the collider position
+        Collider* collider = obj->getCollider();
+        if (collider) {
+            AABBCollider* aabbCollider = dynamic_cast<AABBCollider*>(collider);
+            if (aabbCollider) {
+                aabbCollider->position = Vector2D(posX, posY);
+            }
+            CircleCollider* circleCollider = dynamic_cast<CircleCollider*>(collider);
+            if (circleCollider) {
+                circleCollider->center = Vector2D(posX, posY);
+            }
+        }
     }
 }

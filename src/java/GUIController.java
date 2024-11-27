@@ -1,5 +1,6 @@
 package JAVA;
 
+import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
@@ -23,18 +24,111 @@ public class GUIController {
     private static final double GROUND_RESTITUTION = 0.6;
     private static final float GROUND_FRICTION = 0.2f;
     private static final double VELOCITY_THRESHOLD = 0.1;
-    private static final double VECTOR_SCALE = 20.0; // Scale factor for velocity vectors
-    private static final int VECTOR_TEXT_OFFSET = 15; // Offset for velocity text
+    private static final double VECTOR_SCALE = 20.0;
+    private static final int VECTOR_TEXT_OFFSET = 15;
+
+    // Force control variables
+    private static final double HORIZONTAL_FORCE = 500.0;
+    private boolean isLeftKeyPressed = false;
+    private boolean isRightKeyPressed = false;
+    private Integer selectedObjectId = null;
 
     private static class ShapeInfo {
         char type;
         double[] dimensions;
         Color color;
-
+        double lastStableX;
+        double lastStableY;
+    
         ShapeInfo(char type, double[] dimensions, Color color) {
             this.type = type;
             this.dimensions = dimensions;
             this.color = color;
+            this.lastStableX = 0;
+            this.lastStableY = 0;
+        }
+    }
+
+    private void checkFinalStability() {
+        try {
+            // Add a small delay before checking final stability
+            Thread.sleep(100);
+            
+            // Very small threshold for final stability check
+            final double FINAL_THRESHOLD = VELOCITY_THRESHOLD / 2;
+            
+            // Counter for stable frames
+            final int REQUIRED_STABLE_FRAMES = 3;
+            int stableFrameCount = 0;
+            
+            // Check stability over multiple frames
+            for (int frame = 0; frame < REQUIRED_STABLE_FRAMES; frame++) {
+                boolean allObjectsStable = true;
+                
+                for (Map.Entry<Integer, ShapeInfo> entry : objectShapes.entrySet()) {
+                    ObjectState state = PhysicsEngineJNI.getObjectState(worldPtr, entry.getKey());
+                    if (state == null) continue;
+                    
+                    // Check velocities and accelerations
+                    if (Math.abs(state.getVelX()) > FINAL_THRESHOLD || 
+                        Math.abs(state.getVelY()) > FINAL_THRESHOLD ||
+                        Math.abs(state.getAccX()) > FINAL_THRESHOLD || 
+                        Math.abs(state.getAccY()) > FINAL_THRESHOLD) {
+                        allObjectsStable = false;
+                        break;
+                    }
+                    
+                    // Store initial positions for the first frame
+                    if (frame == 0) {
+                        entry.getValue().lastStableX = state.getPosX();
+                        entry.getValue().lastStableY = state.getPosY();
+                    } else {
+                        // Check if position has changed significantly
+                        double positionDelta = Math.sqrt(
+                            Math.pow(state.getPosX() - entry.getValue().lastStableX, 2) +
+                            Math.pow(state.getPosY() - entry.getValue().lastStableY, 2)
+                        );
+                        
+                        if (positionDelta > FINAL_THRESHOLD) {
+                            allObjectsStable = false;
+                            break;
+                        }
+                    }
+                }
+                
+                if (allObjectsStable) {
+                    stableFrameCount++;
+                } else {
+                    // Reset stable frame count if any instability is detected
+                    stableFrameCount = 0;
+                    break;
+                }
+                
+                // Small delay between stability checks
+                Thread.sleep(16); // Approximately 60 FPS
+            }
+            
+            // Update simulation state based on stability check
+            isRunning = stableFrameCount < REQUIRED_STABLE_FRAMES;
+            
+            // If simulation is stopping, zero out small residual velocities
+            if (!isRunning) {
+                for (Integer id : objectShapes.keySet()) {
+                    ObjectState state = PhysicsEngineJNI.getObjectState(worldPtr, id);
+                    if (state == null) continue;
+                    
+                    if (Math.abs(state.getVelX()) < FINAL_THRESHOLD && 
+                        Math.abs(state.getVelY()) < FINAL_THRESHOLD) {
+                        PhysicsEngineJNI.updateObjectState(worldPtr, id,
+                            state.getPosX(), state.getPosY(),
+                            0.0, 0.0); // Zero out velocities
+                    }
+                }
+            }
+            
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            isRunning = false;
         }
     }
 
@@ -50,10 +144,40 @@ public class GUIController {
         canvas.setOnMouseClicked(e -> {
             if (!isRunning) {
                 showAddObjectDialog(e.getX(), e.getY());
+            } else {
+                handleObjectSelection(e.getX(), e.getY());
             }
         });
 
         clearCanvas();
+    }
+
+    public void setupKeyHandling(Scene scene) {
+        scene.setOnKeyPressed(event -> {
+            switch (event.getCode()) {
+                case LEFT:
+                    isLeftKeyPressed = true;
+                    break;
+                case RIGHT:
+                    isRightKeyPressed = true;
+                    break;
+                default:
+                    break;
+            }
+        });
+
+        scene.setOnKeyReleased(event -> {
+            switch (event.getCode()) {
+                case LEFT:
+                    isLeftKeyPressed = false;
+                    break;
+                case RIGHT:
+                    isRightKeyPressed = false;
+                    break;
+                default:
+                    break;
+            }
+        });
     }
 
     private void clearCanvas() {
@@ -66,19 +190,152 @@ public class GUIController {
     public void update(double deltaTime) {
         if (isRunning) {
             synchronized(this) {
+                // Apply any user-controlled forces
+                applyHorizontalForces();
+                
+                // Step the physics simulation
                 PhysicsEngineJNI.stepSimulation(worldPtr, deltaTime);
+                
+                // Handle object-object collisions first
                 PhysicsEngineJNI.handleCollisions(worldPtr);
-                handleGroundCollisions();
+                
+                // Then handle boundary collisions
+                handleBoundaryCollisions();
+                
+                // Update the display
                 render();
             }
         }
     }
 
-    private void handleGroundCollisions() {
-        double groundY = canvas.getHeight() - 5; // Ground level
+    private void handleBoundaryCollisions() {
+        // Define boundaries
+        final double MARGIN = 5.0;
+        double leftBound = MARGIN;
+        double rightBound = canvas.getWidth() - MARGIN;
+        double topBound = MARGIN;
+        double bottomBound = canvas.getHeight() - MARGIN;
+        
         boolean anyObjectActive = false;
         
-        // First pass: Check all objects and handle collisions
+        for (Map.Entry<Integer, ShapeInfo> entry : objectShapes.entrySet()) {
+            int id = entry.getKey();
+            ShapeInfo shapeInfo = entry.getValue();
+            ObjectState state = PhysicsEngineJNI.getObjectState(worldPtr, id);
+            
+            if (state == null) continue;
+            
+            // Calculate object boundaries
+            double objectLeft = state.getPosX();
+            double objectRight = objectLeft;
+            double objectTop = state.getPosY();
+            double objectBottom = objectTop;
+            
+            switch (shapeInfo.type) {
+                case 'R':
+                    objectRight += shapeInfo.dimensions[0];
+                    objectBottom += shapeInfo.dimensions[1];
+                    break;
+                case 'C':
+                    objectRight += shapeInfo.dimensions[0] * 2;
+                    objectBottom += shapeInfo.dimensions[0] * 2;
+                    break;
+                case 'S':
+                    objectRight += shapeInfo.dimensions[0];
+                    objectBottom += shapeInfo.dimensions[0];
+                    break;
+            }
+            
+            double velX = state.getVelX();
+            double velY = state.getVelY();
+            double newPosX = state.getPosX();
+            double newPosY = state.getPosY();
+            boolean collisionOccurred = false;
+            
+            // Handle boundary collisions
+            if (objectBottom > bottomBound) {
+                newPosY = bottomBound - (objectBottom - objectTop);
+                if (velY > 0) {
+                    velY = -velY * GROUND_RESTITUTION;
+                    velX *= (1.0 - GROUND_FRICTION);
+                    collisionOccurred = true;
+                }
+            }
+            
+            if (objectTop < topBound) {
+                newPosY = topBound;
+                if (velY < 0) {
+                    velY = -velY * GROUND_RESTITUTION;
+                    velX *= (1.0 - GROUND_FRICTION);
+                    collisionOccurred = true;
+                }
+            }
+            
+            if (objectRight > rightBound) {
+                newPosX = rightBound - (objectRight - objectLeft);
+                if (velX > 0) {
+                    velX = -velX * GROUND_RESTITUTION;
+                    velY *= (1.0 - GROUND_FRICTION);
+                    collisionOccurred = true;
+                }
+            }
+            
+            if (objectLeft < leftBound) {
+                newPosX = leftBound;
+                if (velX < 0) {
+                    velX = -velX * GROUND_RESTITUTION;
+                    velY *= (1.0 - GROUND_FRICTION);
+                    collisionOccurred = true;
+                }
+            }
+            
+            // Check if object has significant motion
+            boolean hasSignificantMotion = Math.abs(velX) > VELOCITY_THRESHOLD || 
+                                         Math.abs(velY) > VELOCITY_THRESHOLD;
+            
+            if (hasSignificantMotion || collisionOccurred) {
+                anyObjectActive = true;
+                PhysicsEngineJNI.updateObjectState(worldPtr, id, newPosX, newPosY, velX, velY);
+            }
+        }
+        
+        // Update simulation state
+        if (!anyObjectActive && isRunning) {
+            checkFinalStability();
+        }
+    }
+
+    private void applyHorizontalForces() {
+        if (selectedObjectId != null && (isLeftKeyPressed || isRightKeyPressed)) {
+            ObjectState state = PhysicsEngineJNI.getObjectState(worldPtr, selectedObjectId);
+            if (state != null) {
+                double force = 0;
+                if (isLeftKeyPressed) force -= HORIZONTAL_FORCE;
+                if (isRightKeyPressed) force += HORIZONTAL_FORCE;
+                
+                // Update velocity directly for immediate response
+                double newVelX = state.getVelX() + (force / 1.0) * 0.016; // Assuming 60 FPS
+                PhysicsEngineJNI.updateObjectState(worldPtr, selectedObjectId,
+                    state.getPosX(), state.getPosY(),
+                    newVelX, state.getVelY());
+            }
+        }
+    }
+
+    private void handleGroundCollisions() {
+        // Handle block-on-block collisions
+        PhysicsEngineJNI.handleCollisions(worldPtr);
+    
+        // Define boundaries (adding small margins)
+        final double MARGIN = 5.0;
+        double leftBound = MARGIN;
+        double rightBound = canvas.getWidth() - MARGIN;
+        double topBound = MARGIN;
+        double bottomBound = canvas.getHeight() - MARGIN;
+        
+        boolean anyObjectActive = false;
+        
+        // Check all objects for boundary collisions
         for (Map.Entry<Integer, ShapeInfo> entry : objectShapes.entrySet()) {
             int id = entry.getKey();
             ShapeInfo shapeInfo = entry.getValue();
@@ -86,82 +343,96 @@ public class GUIController {
             ObjectState state = PhysicsEngineJNI.getObjectState(worldPtr, id);
             if (state == null) continue;
             
-            // Calculate object boundaries
-            double objectBottom;
+            // Calculate object boundaries based on shape
+            double objectLeft = state.getPosX();
+            double objectTop = state.getPosY();
+            double objectRight, objectBottom;
+            
             switch (shapeInfo.type) {
-                case 'R': objectBottom = state.getPosY() + shapeInfo.dimensions[1]; break;
-                case 'C': objectBottom = state.getPosY() + shapeInfo.dimensions[0] * 2; break;
-                case 'S': objectBottom = state.getPosY() + shapeInfo.dimensions[0]; break;
-                default: continue;
+                case 'R':
+                    objectRight = objectLeft + shapeInfo.dimensions[0];
+                    objectBottom = objectTop + shapeInfo.dimensions[1];
+                    break;
+                case 'C':
+                    objectRight = objectLeft + shapeInfo.dimensions[0] * 2;
+                    objectBottom = objectTop + shapeInfo.dimensions[0] * 2;
+                    break;
+                case 'S':
+                    objectRight = objectLeft + shapeInfo.dimensions[0];
+                    objectBottom = objectTop + shapeInfo.dimensions[0];
+                    break;
+                default:
+                    continue;
             }
             
-            // Check if object is moving
-            boolean hasSignificantMotion = Math.abs(state.getVelX()) > VELOCITY_THRESHOLD || 
-                                         Math.abs(state.getVelY()) > VELOCITY_THRESHOLD;
+            // Get current velocities
+            double velX = state.getVelX();
+            double velY = state.getVelY();
+            double newPosX = state.getPosX();
+            double newPosY = state.getPosY();
+            boolean collisionOccurred = false;
             
-            // Check if object is above ground
-            boolean isAboveGround = objectBottom < groundY;
-            
-            // If object is either moving or not yet at rest position, simulation should continue
-            if (hasSignificantMotion || isAboveGround) {
-                anyObjectActive = true;
-            }
-            
-            // Handle ground collision if needed
-            if (objectBottom > groundY) {
-                // Calculate correct Y position
-                double correctedY;
-                switch (shapeInfo.type) {
-                    case 'R': correctedY = groundY - shapeInfo.dimensions[1]; break;
-                    case 'C': correctedY = groundY - shapeInfo.dimensions[0] * 2; break;
-                    case 'S': correctedY = groundY - shapeInfo.dimensions[0]; break;
-                    default: continue;
-                }
-                
-                // Apply collision response
-                double velY = state.getVelY();
-                double velX = state.getVelX();
-                
-                // Only apply bounce if moving downward
+            // Bottom boundary collision
+            if (objectBottom > bottomBound) {
+                newPosY = bottomBound - (objectBottom - objectTop);
                 if (velY > 0) {
                     velY = -velY * GROUND_RESTITUTION;
                     velX *= (1.0 - GROUND_FRICTION);
-                    
-                    // If bounce creates significant motion, keep simulation active
-                    if (Math.abs(velY) > VELOCITY_THRESHOLD) {
-                        anyObjectActive = true;
-                    }
+                    collisionOccurred = true;
                 }
-                
-                // Update object state
-                PhysicsEngineJNI.updateObjectState(worldPtr, id, 
-                                                 state.getPosX(), 
-                                                 correctedY,
-                                                 velX, 
-                                                 velY);
             }
-        }
-        
-        // Second pass: Update acceleration for all objects
-        for (Map.Entry<Integer, ShapeInfo> entry : objectShapes.entrySet()) {
-            int id = entry.getKey();
-            ObjectState state = PhysicsEngineJNI.getObjectState(worldPtr, id);
-            if (state == null) continue;
             
-            // If any object has non-zero acceleration, keep simulation active
-            if (Math.abs(state.getAccX()) > VELOCITY_THRESHOLD || 
-                Math.abs(state.getAccY()) > VELOCITY_THRESHOLD) {
+            // Top boundary collision
+            if (objectTop < topBound) {
+                newPosY = topBound;
+                if (velY < 0) {
+                    velY = -velY * GROUND_RESTITUTION;
+                    velX *= (1.0 - GROUND_FRICTION);
+                    collisionOccurred = true;
+                }
+            }
+            
+            // Right boundary collision
+            if (objectRight > rightBound) {
+                newPosX = rightBound - (objectRight - objectLeft);
+                if (velX > 0) {
+                    velX = -velX * GROUND_RESTITUTION;
+                    velY *= (1.0 - GROUND_FRICTION);
+                    collisionOccurred = true;
+                }
+            }
+            
+            // Left boundary collision
+            if (objectLeft < leftBound) {
+                newPosX = leftBound;
+                if (velX < 0) {
+                    velX = -velX * GROUND_RESTITUTION;
+                    velY *= (1.0 - GROUND_FRICTION);
+                    collisionOccurred = true;
+                }
+            }
+            
+            // Check if object has significant motion
+            boolean hasSignificantMotion = Math.abs(velX) > VELOCITY_THRESHOLD || 
+                                         Math.abs(velY) > VELOCITY_THRESHOLD;
+            
+            // Update simulation state
+            if (hasSignificantMotion || collisionOccurred) {
                 anyObjectActive = true;
             }
+            
+            // Update object state if position or velocity changed
+            if (collisionOccurred) {
+                PhysicsEngineJNI.updateObjectState(worldPtr, id, newPosX, newPosY, velX, velY);
+            }
         }
         
-        // Only continue simulation if there are active objects
+        // Update simulation running state
         if (isRunning && !anyObjectActive) {
-            // Add a small delay before stopping to ensure all objects are truly at rest
             try {
                 Thread.sleep(100); // Small delay to ensure stability
                 
-                // Double check if everything is really at rest
+                // Final check for motion
                 boolean finalCheck = false;
                 for (Map.Entry<Integer, ShapeInfo> entry : objectShapes.entrySet()) {
                     ObjectState state = PhysicsEngineJNI.getObjectState(worldPtr, entry.getKey());
@@ -184,28 +455,71 @@ public class GUIController {
             isRunning = true;
         }
     }
+
+    private void handleObjectSelection(double clickX, double clickY) {
+        for (Map.Entry<Integer, ShapeInfo> entry : objectShapes.entrySet()) {
+            int id = entry.getKey();
+            ShapeInfo shapeInfo = entry.getValue();
+            ObjectState state = PhysicsEngineJNI.getObjectState(worldPtr, id);
+            
+            if (state == null) continue;
+            
+            double posX = state.getPosX();
+            double posY = state.getPosY();
+            double width = 0;
+            double height = 0;
+            
+            switch (shapeInfo.type) {
+                case 'R':
+                    width = shapeInfo.dimensions[0];
+                    height = shapeInfo.dimensions[1];
+                    break;
+                case 'C':
+                    width = shapeInfo.dimensions[0] * 2;
+                    height = shapeInfo.dimensions[0] * 2;
+                    break;
+                case 'S':
+                    width = shapeInfo.dimensions[0];
+                    height = shapeInfo.dimensions[0];
+                    break;
+            }
+            
+            if (clickX >= posX && clickX <= posX + width &&
+                clickY >= posY && clickY <= posY + height) {
+                selectedObjectId = id;
+                return;
+            }
+        }
+        selectedObjectId = null;
+    }
     
-    private void drawAccelerationVector(double x, double y, double accX, double accY) {
-        // Calculate acceleration magnitude
-        double accelerationMagnitude = Math.sqrt(accX * accX + accY * accY);
+    private void drawVelocityVector(double x, double y, double velX, double velY) {
+        // Calculate velocity magnitude
+        double velocityMagnitude = Math.sqrt(velX * velX + velY * velY);
         
-        // Use a different scale for acceleration since it's typically smaller than velocity
-        // and might need more amplification to be visible
-        final double ACCELERATION_SCALE = 100.0;  // Increased scale factor for acceleration
+        // Skip drawing if velocity is effectively zero
+        if (velocityMagnitude < 0.01) return;
         
-        // Draw acceleration vector in a different color to distinguish from velocity
-        gc.setStroke(Color.BLACK);  // Changed to green to differentiate from velocity vectors
+        // Normalize the velocity vector
+        double normalizedVelX = velX / velocityMagnitude;
+        double normalizedVelY = velY / velocityMagnitude;
+        
+        // Use a fixed length for the vector visualization
+        final double FIXED_VECTOR_LENGTH = 40.0;
+        
+        // Calculate end point using normalized direction and fixed length
+        double scaledEndX = x + normalizedVelX * FIXED_VECTOR_LENGTH;
+        double scaledEndY = y + normalizedVelY * FIXED_VECTOR_LENGTH;
+        
+        // Draw velocity vector in black
+        gc.setStroke(Color.BLACK);
         gc.setLineWidth(2);
-        
-        // Scale the vector for better visualization
-        double scaledEndX = x + accX * ACCELERATION_SCALE;
-        double scaledEndY = y + accY * ACCELERATION_SCALE;
         
         // Draw the main vector line
         gc.strokeLine(x, y, scaledEndX, scaledEndY);
         
         // Draw arrowhead
-        double angle = Math.atan2(accY, accX);
+        double angle = Math.atan2(normalizedVelY, normalizedVelX);
         double arrowLength = 10;
         
         gc.strokeLine(scaledEndX, scaledEndY,
@@ -215,11 +529,11 @@ public class GUIController {
                      scaledEndX - arrowLength * Math.cos(angle + Math.PI/6),
                      scaledEndY - arrowLength * Math.sin(angle + Math.PI/6));
         
-        // Display acceleration magnitude
-        gc.setFill(Color.BLACK);  // Match the vector color
+        // Display velocity magnitude
+        gc.setFill(Color.BLACK);
         gc.setFont(new Font("Arial", 12));
-        String accelerationText = String.format("%.2f m/s²", accelerationMagnitude);
-        gc.fillText(accelerationText, 
+        String velocityText = String.format("%.2f m/s", velocityMagnitude);
+        gc.fillText(velocityText, 
                    x + VECTOR_TEXT_OFFSET, 
                    y - VECTOR_TEXT_OFFSET);
     }
@@ -227,10 +541,14 @@ public class GUIController {
     private void render() {
         clearCanvas();
         
-        // Draw ground line
+        // Draw boundary box
         gc.setStroke(Color.BLACK);
         gc.setLineWidth(2);
-        gc.strokeLine(0, canvas.getHeight() - 5, canvas.getWidth(), canvas.getHeight() - 5);
+        final double MARGIN = 5.0;
+        // Draw the boundary rectangle
+        gc.strokeRect(MARGIN, MARGIN, 
+                     canvas.getWidth() - 2*MARGIN, 
+                     canvas.getHeight() - 2*MARGIN);
         
         for (Map.Entry<Integer, ShapeInfo> entry : objectShapes.entrySet()) {
             int id = entry.getKey();
@@ -241,6 +559,33 @@ public class GUIController {
             
             double posX = state.getPosX();
             double posY = state.getPosY();
+            
+            // Highlight selected object
+            if (selectedObjectId != null && selectedObjectId == id) {
+                gc.setStroke(Color.BLUE);
+                gc.setLineWidth(2);
+                
+                // Draw selection highlight
+                switch (shapeInfo.type) {
+                    case 'R':
+                        gc.strokeRect(posX - 2, posY - 2, 
+                                    shapeInfo.dimensions[0] + 4, 
+                                    shapeInfo.dimensions[1] + 4);
+                        break;
+                    case 'C':
+                        double diameter = shapeInfo.dimensions[0] * 2;
+                        gc.strokeOval(posX - 2, posY - 2, 
+                                    diameter + 4, diameter + 4);
+                        break;
+                    case 'S':
+                        gc.strokeRect(posX - 2, posY - 2, 
+                                    shapeInfo.dimensions[0] + 4, 
+                                    shapeInfo.dimensions[0] + 4);
+                        break;
+                }
+            }
+            
+            // Draw the object
             gc.setFill(shapeInfo.color);
             
             // Calculate center point for vector drawing
@@ -268,8 +613,15 @@ public class GUIController {
             
             // Draw velocity vector if enabled
             if (isShowingAcc) {
-                drawAccelerationVector(centerX, centerY, state.getAccX(), state.getAccY());
+                drawVelocityVector(centerX, centerY, state.getVelX(), state.getVelY());
             }
+        }
+        
+        // Draw instructions if an object is selected
+        if (selectedObjectId != null) {
+            gc.setFill(Color.BLACK);
+            gc.setFont(new Font("Arial", 14));
+            gc.fillText("Use LEFT/RIGHT arrow keys to apply force", 10, 20);
         }
     }
 
@@ -297,19 +649,28 @@ public class GUIController {
                 return;
         }
 
-        double posX = random.nextDouble() * (canvas.getWidth() - dimensions[0]);
+        double posX = random.nextDouble() * (canvas.getWidth() - dimensions[0] - 10) + 5;
         double posY = random.nextDouble() * (canvas.getHeight() * 0.5);
         
-        addObjectAtPosition(posX, posY, defaultMass, shapeChar, dimensions, color);
+        addObjectAtPosition(posX, posY, defaultMass, shapeChar, dimensions, color, false);
     }
 
     private void addObjectAtPosition(double x, double y, double mass, char shapeChar, 
-                                   double[] dimensions, Color color) {
+                                   double[] dimensions, Color color, boolean placeOnGround) {
         try {
-            double velX = random.nextDouble() * 2 - 1;
+            double posY = y;
+            if (placeOnGround) {
+                // Calculate position to place object on ground
+                double objectHeight = (shapeChar == 'C') ? dimensions[0] * 2 :
+                                    (shapeChar == 'R') ? dimensions[1] : dimensions[0];
+                posY = canvas.getHeight() - 5 - objectHeight;
+            }
+
+            // Initial velocity (reduced for ground-placed objects)
+            double velX = placeOnGround ? 0 : random.nextDouble() * 2 - 1;
             double velY = 0;
 
-            PhysicsEngineJNI.addObject(worldPtr, nextId, mass, x, y, velX, velY, shapeChar, dimensions);
+            PhysicsEngineJNI.addObject(worldPtr, nextId, mass, x, posY, velX, velY, shapeChar, dimensions);
             objectShapes.put(nextId, new ShapeInfo(shapeChar, dimensions, color));
             
             nextId++;
@@ -341,6 +702,7 @@ public class GUIController {
                     char shapeChar;
                     double[] dimensions;
                     Color color = Color.color(random.nextDouble(), random.nextDouble(), random.nextDouble());
+                    boolean placeOnGround = y > canvas.getHeight() * 0.8; // Place on ground if click is near bottom
 
                     switch (shape) {
                         case "Rectangle":
@@ -360,7 +722,7 @@ public class GUIController {
                             return;
                     }
 
-                    addObjectAtPosition(x, y, mass, shapeChar, dimensions, color);
+                    addObjectAtPosition(x, y, mass, shapeChar, dimensions, color, placeOnGround);
                 });
             } catch (NumberFormatException e) {
                 showError("Invalid mass value");
@@ -394,6 +756,7 @@ public class GUIController {
         clearCanvas();
         nextId = 1;
         objectShapes.clear();
+        selectedObjectId = null;
         PhysicsEngineJNI.deletePhysicsWorld(worldPtr);
         worldPtr = PhysicsEngineJNI.createPhysicsWorld();
     }
@@ -405,5 +768,6 @@ public class GUIController {
     public void cleanup() {
         isRunning = false;
         objectShapes.clear();
+        selectedObjectId = null;
     }
 }
