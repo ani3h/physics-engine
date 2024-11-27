@@ -48,12 +48,17 @@ public class SimulationApp extends Application {
         Button configureBtn = new Button("Configure Physics");
         ToggleButton showVectorsBtn = new ToggleButton("Show Vectors");
         
+        // Add frictionless mode toggle
+        ToggleButton frictionlessBtn = new ToggleButton("Frictionless Mode");
+        
         controls.getChildren().addAll(
             objectType, addObjectBtn,
             new Separator(),
             startBtn, pauseBtn, resetBtn,
             new Separator(),
-            configureBtn, showVectorsBtn
+            configureBtn, showVectorsBtn,
+            new Separator(),
+            frictionlessBtn
         );
 
         // Add components to root
@@ -66,27 +71,36 @@ public class SimulationApp extends Application {
         controller = new GUIController(canvas, simulation, worldPtr);
 
         // Set up key handling for the scene
-        controller.setupKeyHandling(scene);  // Add this line to enable key handling
+        controller.setupKeyHandling(scene);
 
         // Set up button actions with focus handling
         addObjectBtn.setOnAction(e -> {
             controller.handleAddObject(objectType.getValue());
             scene.getRoot().requestFocus();
         });
+        
         startBtn.setOnAction(e -> {
             controller.startSimulation();
             scene.getRoot().requestFocus();
         });
+        
         pauseBtn.setOnAction(e -> {
             controller.pauseSimulation();
             scene.getRoot().requestFocus();
         });
+        
         resetBtn.setOnAction(e -> {
             controller.resetSimulation();
             scene.getRoot().requestFocus();
         });
+        
         showVectorsBtn.setOnAction(e -> {
             controller.toggleVectorDisplay();
+            scene.getRoot().requestFocus();
+        });
+
+        frictionlessBtn.setOnAction(e -> {
+            controller.toggleFrictionless();
             scene.getRoot().requestFocus();
         });
 
@@ -123,7 +137,7 @@ public class SimulationApp extends Application {
         primaryStage.show();
 
         // Request focus for the scene to enable key events
-        scene.getRoot().requestFocus();  // Add this line to ensure key events are captured
+        scene.getRoot().requestFocus();
     }
 
     private void showConfigurationDialog() {
@@ -152,6 +166,18 @@ public class SimulationApp extends Application {
         Slider kineticSlider = new Slider(0, 1, 0.3);
         kineticSlider.setShowTickLabels(true);
 
+        // Disable friction controls if in frictionless mode
+        boolean isFrictionless = controller.isFrictionless();
+        staticSlider.setDisable(isFrictionless);
+        kineticSlider.setDisable(isFrictionless);
+        
+        // Add a note about frictionless mode if active
+        if (isFrictionless) {
+            Label frictionlessNote = new Label("Friction controls disabled - Frictionless mode is active");
+            frictionlessNote.setStyle("-fx-text-fill: red;");
+            content.getChildren().add(frictionlessNote);
+        }
+
         content.getChildren().addAll(
             gravityLabel, gravitySlider,
             frictionLabel,
@@ -173,9 +199,11 @@ public class SimulationApp extends Application {
                 double[] gravityParams = {gravitySlider.getValue()};
                 PhysicsEngineJNI.configureForces(worldPtr, 2, gravityParams);
 
-                // Configure friction
-                double[] frictionParams = {staticSlider.getValue(), kineticSlider.getValue()};
-                PhysicsEngineJNI.configureForces(worldPtr, 1, frictionParams);
+                // Configure friction (only if not in frictionless mode)
+                if (!controller.isFrictionless()) {
+                    double[] frictionParams = {staticSlider.getValue(), kineticSlider.getValue()};
+                    PhysicsEngineJNI.configureForces(worldPtr, 1, frictionParams);
+                }
             }
             return null;
         });

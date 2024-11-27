@@ -21,6 +21,7 @@ public class GUIController {
     private Random random;
     private Map<Integer, ShapeInfo> objectShapes;
     private boolean isShowingAcc = false;
+    private boolean isFrictionless = false;
     private static final double GROUND_RESTITUTION = 0.6;
     private static final float GROUND_FRICTION = 0.2f;
     private static final double VELOCITY_THRESHOLD = 0.1;
@@ -224,7 +225,6 @@ public class GUIController {
     }
 
     private void handleBoundaryCollisions() {
-        // Define boundaries
         final double MARGIN = 5.0;
         double leftBound = MARGIN;
         double rightBound = canvas.getWidth() - MARGIN;
@@ -267,12 +267,14 @@ public class GUIController {
             double newPosY = state.getPosY();
             boolean collisionOccurred = false;
             
-            // Handle boundary collisions
+            // Handle boundary collisions with conditional friction
             if (objectBottom > bottomBound) {
                 newPosY = bottomBound - (objectBottom - objectTop);
                 if (velY > 0) {
                     velY = -velY * GROUND_RESTITUTION;
-                    velX *= (1.0 - GROUND_FRICTION);
+                    if (!isFrictionless) {
+                        velX *= (1.0 - GROUND_FRICTION);
+                    }
                     collisionOccurred = true;
                 }
             }
@@ -281,7 +283,9 @@ public class GUIController {
                 newPosY = topBound;
                 if (velY < 0) {
                     velY = -velY * GROUND_RESTITUTION;
-                    velX *= (1.0 - GROUND_FRICTION);
+                    if (!isFrictionless) {
+                        velX *= (1.0 - GROUND_FRICTION);
+                    }
                     collisionOccurred = true;
                 }
             }
@@ -290,7 +294,9 @@ public class GUIController {
                 newPosX = rightBound - (objectRight - objectLeft);
                 if (velX > 0) {
                     velX = -velX * GROUND_RESTITUTION;
-                    velY *= (1.0 - GROUND_FRICTION);
+                    if (!isFrictionless) {
+                        velY *= (1.0 - GROUND_FRICTION);
+                    }
                     collisionOccurred = true;
                 }
             }
@@ -299,12 +305,13 @@ public class GUIController {
                 newPosX = leftBound;
                 if (velX < 0) {
                     velX = -velX * GROUND_RESTITUTION;
-                    velY *= (1.0 - GROUND_FRICTION);
+                    if (!isFrictionless) {
+                        velY *= (1.0 - GROUND_FRICTION);
+                    }
                     collisionOccurred = true;
                 }
             }
             
-            // Check if object has significant motion
             boolean hasSignificantMotion = Math.abs(velX) > VELOCITY_THRESHOLD || 
                                          Math.abs(velY) > VELOCITY_THRESHOLD;
             
@@ -314,10 +321,22 @@ public class GUIController {
             }
         }
         
-        // Update simulation state
         if (!anyObjectActive && isRunning) {
             checkFinalStability();
         }
+    }
+
+    public void toggleFrictionless() {
+        isFrictionless = !isFrictionless;
+        
+        // Configure physics engine friction
+        double[] frictionParams;
+        if (isFrictionless) {
+            frictionParams = new double[]{0.0, 0.0}; // No friction
+        } else {
+            frictionParams = new double[]{0.5, 0.3}; // Default friction values
+        }
+        PhysicsEngineJNI.configureForces(worldPtr, 1, frictionParams);
     }
 
     private void applyHorizontalForces() {
@@ -789,6 +808,10 @@ public class GUIController {
 
     public boolean isRunning() {
         return isRunning;
+    }
+
+    public boolean isFrictionless() {
+        return isFrictionless;
     }
 
     public void cleanup() {
