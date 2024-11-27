@@ -29,8 +29,11 @@ public class GUIController {
 
     // Force control variables
     private static final double HORIZONTAL_FORCE = 500.0;
+    private static final double VERTICAL_FORCE = 500.0;
     private boolean isLeftKeyPressed = false;
     private boolean isRightKeyPressed = false;
+    private boolean isUpKeyPressed = false;
+    private boolean isDownKeyPressed = false;
     private Integer selectedObjectId = null;
 
     private static class ShapeInfo {
@@ -161,6 +164,12 @@ public class GUIController {
                 case RIGHT:
                     isRightKeyPressed = true;
                     break;
+                case UP:
+                    isUpKeyPressed = true;
+                    break;
+                case DOWN:
+                    isDownKeyPressed = true;
+                    break;
                 default:
                     break;
             }
@@ -173,6 +182,12 @@ public class GUIController {
                     break;
                 case RIGHT:
                     isRightKeyPressed = false;
+                    break;
+                case UP:
+                    isUpKeyPressed = false;
+                    break;
+                case DOWN:
+                    isDownKeyPressed = false;
                     break;
                 default:
                     break;
@@ -306,18 +321,29 @@ public class GUIController {
     }
 
     private void applyHorizontalForces() {
-        if (selectedObjectId != null && (isLeftKeyPressed || isRightKeyPressed)) {
+        if (selectedObjectId != null && 
+            (isLeftKeyPressed || isRightKeyPressed || isUpKeyPressed || isDownKeyPressed)) {
             ObjectState state = PhysicsEngineJNI.getObjectState(worldPtr, selectedObjectId);
             if (state != null) {
-                double force = 0;
-                if (isLeftKeyPressed) force -= HORIZONTAL_FORCE;
-                if (isRightKeyPressed) force += HORIZONTAL_FORCE;
+                double forceX = 0;
+                double forceY = 0;
+
+                // Calculate horizontal forces
+                if (isLeftKeyPressed) forceX -= HORIZONTAL_FORCE;
+                if (isRightKeyPressed) forceX += HORIZONTAL_FORCE;
+
+                // Calculate vertical forces
+                if (isUpKeyPressed) forceY -= VERTICAL_FORCE;
+                if (isDownKeyPressed) forceY += VERTICAL_FORCE;
                 
-                // Update velocity directly for immediate response
-                double newVelX = state.getVelX() + (force / 1.0) * 0.016; // Assuming 60 FPS
+                // Update velocities with applied forces
+                double deltaTime = 0.016; // Assuming 60 FPS
+                double newVelX = state.getVelX() + (forceX / 1.0) * deltaTime;
+                double newVelY = state.getVelY() + (forceY / 1.0) * deltaTime;
+
                 PhysicsEngineJNI.updateObjectState(worldPtr, selectedObjectId,
                     state.getPosX(), state.getPosY(),
-                    newVelX, state.getVelY());
+                    newVelX, newVelY);
             }
         }
     }
@@ -621,7 +647,7 @@ public class GUIController {
         if (selectedObjectId != null) {
             gc.setFill(Color.BLACK);
             gc.setFont(new Font("Arial", 14));
-            gc.fillText("Use LEFT/RIGHT arrow keys to apply force", 10, 20);
+            gc.fillText("Use arrow keys to apply forces (LEFT/RIGHT/UP/DOWN)", 10, 20);
         }
     }
 
