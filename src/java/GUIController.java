@@ -747,7 +747,7 @@ public class GUIController {
                     char shapeChar;
                     double[] dimensions;
                     Color color = Color.color(random.nextDouble(), random.nextDouble(), random.nextDouble());
-                    boolean placeOnGround = y > canvas.getHeight() * 0.8; // Place on ground if click is near bottom
+                    boolean placeOnGround = y > canvas.getHeight() * 0.95; // Place on ground if click is near bottom
 
                     switch (shape) {
                         case "Rectangle":
