@@ -9,7 +9,11 @@ The simulation will support:
 - Collision detection for axis-aligned bounding boxes (AABB) and circle colliders. 
 - Real-time updates of objects in response to forces and collisions.
 
-![Description](https://drive.google.com/uc?export=view&id=13pAVvhFCxZZIN849SwTn-Xm25O_oPbdI)
+
+
+![physics-sim](https://github.com/user-attachments/assets/54fd0a04-300d-4be1-bf76-26fc91270f49)
+
+
 
 ## Project Directory Structure
 ```
