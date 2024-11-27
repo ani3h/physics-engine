@@ -10,7 +10,9 @@ The simulation will support:
 - Real-time updates of objects in response to forces and collisions.
 
 
+
 ![physics-sim](https://github.com/user-attachments/assets/54fd0a04-300d-4be1-bf76-26fc91270f49)
+
 
 
 ## Project Directory Structure
