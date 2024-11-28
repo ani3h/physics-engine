@@ -1,4 +1,3 @@
-// File: src/JAVA/PhysicsSimulation.java
 package JAVA;
 
 import java.util.Scanner;
