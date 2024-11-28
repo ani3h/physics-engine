@@ -76,7 +76,7 @@ To use the package, you can follow the steps below:
    
    Download the JavaFX SDK from the official website and extract it to the `resources/` directory, as seen in the directory structure.
 
-3. **Make the build script executable:**
+3. **Make the build script executable(for mac):**
    
    Navigate to the root directory(Physics Engine):
    ```bash
@@ -87,9 +87,14 @@ To use the package, you can follow the steps below:
    
 4. **Run the executabale:**
    
-   Navigate to the src/java/ directory:
+   Navigate to the src/java/ directory (for MAC):
    ```bash
    ./build_and_run.sh
+   ```
+
+   Run the batch file in Command Prompt (for WINDOWS):
+   ```bash
+   build_and_run.bat
    ```
 
    Runs the compiled Java application, and the JavaFX window pops up.
