@@ -76,7 +76,7 @@ To use the package, you can follow the steps below:
    
    Download the JavaFX SDK from the official website and extract it to the `resources/` directory, as seen in the directory structure.
 
-3. **Make the build script executable(for mac):**
+3. **Make the build script executable (for MAC):**
    
    Navigate to the root directory(Physics Engine):
    ```bash
